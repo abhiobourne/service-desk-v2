@@ -1,0 +1,129 @@
+"use client";
+
+import React, { memo } from "react";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+  ZoomableGroup,
+} from "react-simple-maps";
+
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
+
+export interface MapMarker {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  status: "nominal" | "critical" | "warning";
+  detail?: string;
+}
+
+const STATUS = {
+  nominal:  { dot: "#10b981", ring: "#10b981", label: "bg-emerald-500" },
+  critical: { dot: "#ef4444", ring: "#ef4444", label: "bg-rose-500" },
+  warning:  { dot: "#f59e0b", ring: "#f59e0b", label: "bg-amber-500" },
+};
+
+interface Props {
+  markers?: MapMarker[];
+}
+
+function WorldMapInner({ markers = [] }: Props) {
+  const [tooltip, setTooltip] = React.useState<{ name: string; detail?: string; x: number; y: number } | null>(null);
+  const [selected, setSelected] = React.useState<MapMarker | null>(null);
+  const center = selected?.coordinates ?? [0, 10];
+  const zoom = selected ? 3.4 : 1;
+
+  return (
+    <div className="relative w-full h-full bg-[#090b10] rounded overflow-hidden select-none">
+      {/* subtle grid overlay */}
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[length:20px_20px]" />
+
+      <ComposableMap
+        projection="geoNaturalEarth1"
+        projectionConfig={{ scale: 155, center: [0, 10] }}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <ZoomableGroup center={center} zoom={zoom} minZoom={1} maxZoom={6}>
+          <Geographies geography={GEO_URL}>
+            {({ geographies }) =>
+              geographies.map((geo) => (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  style={{
+                    default: { fill: "#1a1f2e", stroke: "#2a3040", strokeWidth: 0.4, outline: "none" },
+                    hover:   { fill: "#222840", stroke: "#3b4560", strokeWidth: 0.5, outline: "none" },
+                    pressed: { fill: "#1a1f2e", outline: "none" },
+                  }}
+                />
+              ))
+            }
+          </Geographies>
+
+          {markers.map((m, i) => {
+            const s = STATUS[m.status];
+            return (
+              <Marker
+                key={i}
+                coordinates={m.coordinates}
+                onMouseEnter={(e: React.MouseEvent) => {
+                  const rect = (e.currentTarget as SVGElement).closest("svg")?.getBoundingClientRect();
+                  if (rect) setTooltip({ name: m.name, detail: m.detail, x: e.clientX - rect.left, y: e.clientY - rect.top });
+                }}
+                onMouseLeave={() => setTooltip(null)}
+                onClick={() => setSelected(m)}
+              >
+                {/* Pulsing ring */}
+                <circle r={9} fill="none" stroke={s.ring} strokeWidth={1} opacity={0.3}>
+                  <animate attributeName="r" values="6;14;6" dur="2.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+                {/* Core dot */}
+                <circle r={4} fill={s.dot} stroke="#0a0c14" strokeWidth={1.5} style={{ cursor: "pointer" }} />
+              </Marker>
+            );
+          })}
+        </ZoomableGroup>
+      </ComposableMap>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="absolute z-20 pointer-events-none bg-[#0c0e16] border border-white/10 px-2.5 py-1.5 rounded text-[9px] font-mono text-white shadow-lg"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}
+        >
+          <div className="font-bold text-[10px]">{tooltip.name}</div>
+          {tooltip.detail && <div className="text-white/50 mt-0.5">{tooltip.detail}</div>}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="absolute bottom-2 left-3 flex items-center gap-3">
+        {(["nominal", "warning", "critical"] as const).map(s => (
+          <div key={s} className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full" style={{ background: STATUS[s].dot }} />
+            <span className="text-[8px] font-mono text-white/35 uppercase">{s}</span>
+          </div>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="absolute right-3 top-3 max-w-56 rounded border border-cyan-400/20 bg-[#0c0e16]/95 p-3 font-mono shadow-xl">
+          <div className="mb-1 text-[10px] uppercase tracking-widest text-cyan-200">Installation View</div>
+          <div className="text-xs font-semibold text-white">{selected.name}</div>
+          {selected.detail && <div className="mt-1 text-[10px] text-white/45">{selected.detail}</div>}
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="mt-3 rounded border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-white/45 transition hover:bg-white/5 hover:text-white"
+          >
+            World View
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const WorldMap = memo(WorldMapInner);
