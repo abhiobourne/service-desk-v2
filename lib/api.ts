@@ -1168,3 +1168,66 @@ export async function fetchDeploymentMarkersFromOrders(): Promise<ApiDeploymentM
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Client Portal Specific Order APIs
+// ---------------------------------------------------------------------------
+
+export interface ApiClientAddress {
+  id: string;
+  clientId: string;
+  siteCode: string | null;
+  addressType: string;
+  address: string;
+  isActive: boolean;
+}
+
+export interface CreateOrderPayload {
+  client_id: string;
+  user_id: string;
+  billing_address: string;
+  shipping_address: string;
+  items: Array<{ product_id: string; quantity: number }>;
+  design_parts_json?: string;
+}
+
+export async function fetchClientAddresses(clientId: string): Promise<ApiClientAddress[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/orders/client-addresses/${clientId}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createInventoryOrder(payload: CreateOrderPayload): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/orders`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || `Failed to create order (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+export async function fetchOrdersList(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/orders?limit=100&orderBy=createdAt&order=DESC`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+
