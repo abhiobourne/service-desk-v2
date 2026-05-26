@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import {
   ChevronRight, ChevronDown, Box, Folder, FileText, BookOpen, HelpCircle,
   Search, X, ArrowLeft, Package, Loader2, ChevronLeft, File, CheckSquare, Square,
@@ -17,7 +17,7 @@ import { GlbViewerDark, type DarkHotspot } from "@/components/GlbViewerDark";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
 import { fuzzyAny } from "@/lib/search";
 
-const BASE_URL = "http://localhost:7000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
 // ---------------------------------------------------------------------------
 // Colour maps (dark theme)
@@ -270,7 +270,12 @@ function MarkdownViewer({ src }: { src: string }) {
 export default function TroubleshootingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams<{ orderRef?: string; productName?: string }>();
   const { user, loading: authLoading } = useAuth();
+  
+  const orderRef = params?.orderRef ? decodeURIComponent(params.orderRef) : "";
+  const productNameFromUrl = params?.productName ? decodeURIComponent(params.productName) : "";
+
   const isFullView = searchParams.get("full") === "1";
   const queryProductId = searchParams.get("productId") ?? "";
   const queryClientId = searchParams.get("clientId") ?? "";
@@ -316,22 +321,32 @@ export default function TroubleshootingPage() {
   const [chatWaitingForResolution, setChatWaitingForResolution] = useState(false);
   const [addTicketOpen, setAddTicketOpen] = useState(false);
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
-  const [raiseTicketOpen, setRaiseTicketOpen] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Auth guard
-  useEffect(() => { if (!authLoading && !user) router.replace("/"); }, [authLoading, user, router]);
+  // Auth guard is handled globally by DashboardLayout
 
   // Load products
   useEffect(() => {
-    if (!user) return;
+    if (!user && !isFullView) return;
     fetchProductCatalog().then(list => {
       setProducts(list);
       setProductsLoading(false);
-      if (queryProductId && list.some((p) => p.id === queryProductId)) setSelectedProductId(queryProductId);
-      else if (list.length > 0) setSelectedProductId(list[0].id);
+      
+      let matchedProductId = "";
+      if (queryProductId && list.some((p) => p.id === queryProductId)) {
+        matchedProductId = queryProductId;
+      } else if (productNameFromUrl) {
+        const found = list.find((p) => p.product_name.toLowerCase() === productNameFromUrl.toLowerCase());
+        if (found) matchedProductId = found.id;
+      }
+
+      if (matchedProductId) {
+        setSelectedProductId(matchedProductId);
+      } else if (list.length > 0) {
+        setSelectedProductId(list[0].id);
+      }
     });
-  }, [user, queryProductId]);
+  }, [user, queryProductId, productNameFromUrl]);
 
   // Load tree when product changes
   useEffect(() => {
@@ -345,6 +360,45 @@ export default function TroubleshootingPage() {
     fetchTroubleshootingByProduct(selectedProductId).then(res => {
       if (res.success && res.data.length > 0) {
         setTreeNodes(res.data);
+        
+        // Auto-expand and navigate to ?part= if provided
+        const partParam = searchParams.get("part") ?? "";
+        if (partParam) {
+          const target = res.data.find(n => n.design_id === partParam);
+          if (target) {
+            const toExpand = new Set<string>(["product-root"]);
+            const chain: TroubleshootingDesignNode[] = [];
+            let cur: TroubleshootingDesignNode | undefined = target;
+            while (cur) {
+              toExpand.add(cur.design_version_id || cur.design_uuid);
+              chain.unshift(cur);
+              const parent = res.data.find(
+                n => n.design_uuid === cur!.parent_design_uuid && n.design_version_id === cur!.parent_version_id
+              );
+              cur = parent;
+            }
+            setExpanded(toExpand);
+            setNavPath(chain);
+
+            // Auto-load target's GLB if it exists, otherwise fall back to first GLB
+            const targetGlb = target.drawing_files.find(f => isGlb(f.file_name));
+            if (targetGlb) {
+              setActiveGlbSrc(`${BASE_URL}${targetGlb.url}`);
+              setActiveGlbId(targetGlb.id);
+            } else {
+              for (const node of res.data) {
+                const glbFile = node.drawing_files.find(f => isGlb(f.file_name));
+                if (glbFile) {
+                  setActiveGlbSrc(`${BASE_URL}${glbFile.url}`);
+                  setActiveGlbId(glbFile.id);
+                  break;
+                }
+              }
+            }
+            return;
+          }
+        }
+
         // Auto-expand root assemblies (level 0)
         const roots = res.data.filter(n => n.parent_design_uuid === null);
         setExpanded(new Set(["product-root", ...roots.map(r => r.design_version_id || r.design_uuid)]));
@@ -360,6 +414,7 @@ export default function TroubleshootingPage() {
         }
       }
     }).finally(() => setLoadingTree(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProductId]);
 
   // Keyboard shortcuts
@@ -447,6 +502,22 @@ export default function TroubleshootingPage() {
     if (!activeGlbId) return null;
     return treeNodes.find(n => n.drawing_files.some(f => f.id === activeGlbId));
   }, [activeGlbId, treeNodes]);
+
+  // Sync ?part= query param when the active node changes
+  useEffect(() => {
+    if (loadingTree) return;
+    const newPart = activeGlbNode?.design_id ?? "";
+    const currentPart = searchParams.get("part") ?? "";
+    if (newPart === currentPart) return;
+
+    const sp = new URLSearchParams(searchParams.toString());
+    if (newPart) {
+      sp.set("part", newPart);
+    } else {
+      sp.delete("part");
+    }
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  }, [activeGlbNode, searchParams, router, loadingTree]);
 
   // Hotspots: children of active GLB node that have GLBs
   const hotspots = useMemo<DarkHotspot[]>(() => {
@@ -618,6 +689,14 @@ export default function TroubleshootingPage() {
           {isFullView ? "Close View" : "Dashboard"}
         </button>
         <span className="text-white/10 shrink-0">|</span>
+        {orderRef && (
+          <>
+            <span className="shrink-0 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded uppercase">
+              Order: {orderRef}
+            </span>
+            <span className="text-white/10 shrink-0">|</span>
+          </>
+        )}
 
         {/* Breadcrumb nav path */}
         {navPath.map((node, i) => {
@@ -640,7 +719,7 @@ export default function TroubleshootingPage() {
           );
         })}
 
-        {/* Product selector */}
+        {/* Product selector + Raise Ticket */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <Package className="h-3.5 w-3.5 text-violet-400 shrink-0" />
           <select
@@ -654,13 +733,37 @@ export default function TroubleshootingPage() {
               <option key={p.id} value={p.id}>{p.product_name} ({p.product_id})</option>
             ))}
           </select>
+
+          {/* Raise Ticket — shows when parts are selected */}
+          {selectedParts.size > 0 && (
+            <div className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/25 rounded px-2 py-1">
+              <span className="text-[10px] font-mono text-violet-300">{selectedParts.size} part{selectedParts.size > 1 ? "s" : ""}</span>
+              <button onClick={() => setSelectedParts(new Set())} className="text-violet-400/50 hover:text-violet-300 transition" title="Clear">
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => setAddTicketOpen(true)}
+                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
+              >
+                <Ticket className="h-3 w-3" />
+                Raise Ticket
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             disabled={!selectedProductId}
             onClick={() => {
               const qs = new URLSearchParams({ productId: selectedProductId, full: "1" });
               if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
-              window.open(`/troubleshooting?${qs.toString()}`, "_blank");
+              if (queryClientId) qs.set("clientId", queryClientId);
+              if (queryOrderId) qs.set("orderId", queryOrderId);
+              
+              const pRef = encodeURIComponent(orderRef || "VIEW");
+              const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
+              
+              window.open(`/troubleshooting/${pRef}/${pName}?${qs.toString()}`, "_blank");
             }}
             className="flex items-center gap-1.5 rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-white/45 transition hover:border-violet-500/30 hover:text-white disabled:opacity-30"
           >
@@ -712,7 +815,7 @@ export default function TroubleshootingPage() {
           </div>
 
           {/* Tree */}
-          <div className="flex-1 overflow-y-auto py-0.5">
+          <div className="flex-1 overflow-y-auto py-0.5 pb-0">
             {loadingTree ? (
               <div className="flex items-center justify-center gap-2 py-12 text-white/30">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -875,29 +978,6 @@ export default function TroubleshootingPage() {
               })
             )}
           </div>
-            {/* Raise ticket strip when parts are selected */}
-            {selectedParts.size > 0 && (
-              <div className="shrink-0 border-t border-violet-500/20 bg-violet-500/5 px-3 py-2.5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[9px] font-mono text-violet-400 uppercase tracking-widest">
-                    {selectedParts.size} part{selectedParts.size > 1 ? "s" : ""} selected
-                  </span>
-                  <button
-                    onClick={() => setSelectedParts(new Set())}
-                    className="text-[9px] font-mono text-white/30 hover:text-white/60 transition"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <button
-                  onClick={() => setRaiseTicketOpen(true)}
-                  className="w-full py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-mono font-semibold rounded-md transition flex items-center justify-center gap-1.5"
-                >
-                  <Ticket className="h-3.5 w-3.5" />
-                  Raise Ticket
-                </button>
-              </div>
-            )}
         </aside>
 
         {/* Sidebar toggle tab */}
@@ -1045,52 +1125,10 @@ export default function TroubleshootingPage() {
         onClose={() => setAddTicketOpen(false)}
         onCreated={() => setAddTicketOpen(false)}
         initialClientId={queryClientId}
-        initialOrderId={queryOrderId}
+        initialOrderId={queryOrderId || orderRef}
         initialProductId={selectedProductId}
         selectedPartNodes={selectedPartNodes}
       />
-
-      {/* Raise ticket with selected parts */}
-      {raiseTicketOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0c0e16] border border-violet-500/20 rounded-2xl w-full max-w-md shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-mono font-bold text-white">Raise Ticket — Selected Parts</h3>
-              <button onClick={() => setRaiseTicketOpen(false)} className="text-white/30 hover:text-white/60 transition">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mb-4 space-y-1.5 max-h-[200px] overflow-y-auto">
-              {selectedPartsData.map(p => (
-                <div key={p.key} className="flex items-center justify-between px-3 py-2 bg-white/3 border border-white/5 rounded-lg">
-                  <span className="text-xs font-mono text-white/70">{p.name}</span>
-                  <span className="text-[9px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded">{p.type}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] font-mono text-white/40 mb-4">
-              A support ticket will be created for the {selectedParts.size} selected part(s). You can add more details in the ticket form.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setRaiseTicketOpen(false)}
-                className="flex-1 py-2 border border-white/10 text-white/50 text-xs font-mono rounded-lg hover:bg-white/5 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setRaiseTicketOpen(false);
-                  setAddTicketOpen(true);
-                }}
-                className="flex-1 py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-mono font-semibold rounded-lg transition"
-              >
-                Continue to Ticket Form
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

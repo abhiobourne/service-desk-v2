@@ -63,7 +63,7 @@ function currency(value: number): string {
 }
 
 export default function PartsPage() {
-  const [activeTab, setActiveTab] = useState<"orders" | "catalog">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "catalog">("catalog");
   const [parts, setParts] = useState<ApiPartCatalogItem[]>([]);
   const [history, setHistory] = useState<ApiPartOrderHistoryItem[]>([]);
   const [detailedOrders, setDetailedOrders] = useState<any[]>([]);
@@ -257,13 +257,13 @@ export default function PartsPage() {
               </div>
             </div>
 
-            {/* Launch Order Button */}
+            {/* Place Order — count updates when parts are checked */}
             <button
               onClick={() => setDrawerOpen(true)}
               className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs uppercase tracking-widest rounded-lg transition duration-200 flex items-center gap-1.5 border border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
             >
               <Plus className="w-4 h-4 text-black" />
-              Place Order
+              {checkedPartIds.length > 0 ? `Place Order (${checkedPartIds.length})` : "Place Order"}
             </button>
           </div>
         </header>
@@ -272,16 +272,6 @@ export default function PartsPage() {
         <div className="flex items-center justify-between border-b border-white/5 pb-2">
           <div className="flex gap-2 bg-[#0b0e14] p-1 rounded-lg border border-white/5">
             <button
-              onClick={() => setActiveTab("orders")}
-              className={`px-4 py-1.5 rounded-md text-xs font-mono tracking-wider transition ${
-                activeTab === "orders"
-                  ? "bg-cyan-500/10 border border-cyan-400/20 text-cyan-200"
-                  : "text-white/40 hover:text-white/80"
-              }`}
-            >
-              🕒 Purchase Order History
-            </button>
-            <button
               onClick={() => setActiveTab("catalog")}
               className={`px-4 py-1.5 rounded-md text-xs font-mono tracking-wider transition ${
                 activeTab === "catalog"
@@ -289,23 +279,24 @@ export default function PartsPage() {
                   : "text-white/40 hover:text-white/80"
               }`}
             >
-              📁 Servicable Parts Catalog
+              Serviceable Parts Catalog
+            </button>
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-4 py-1.5 rounded-md text-xs font-mono tracking-wider transition ${
+                activeTab === "orders"
+                  ? "bg-cyan-500/10 border border-cyan-400/20 text-cyan-200"
+                  : "text-white/40 hover:text-white/80"
+              }`}
+            >
+              Purchase Order History
             </button>
           </div>
 
           {checkedPartIds.length > 0 && activeTab === "catalog" && (
-            <div className="flex items-center gap-3 animate-fade-in">
-              <span className="text-xs text-white/55 font-mono">
-                {checkedPartIds.length} item{checkedPartIds.length > 1 ? "s" : ""} selected
-              </span>
-              <button
-                onClick={() => setDrawerOpen(true)}
-                className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-[10px] uppercase tracking-wider rounded transition flex items-center gap-1"
-              >
-                <ShoppingCart className="w-3.5 h-3.5" />
-                Order Selection
-              </button>
-            </div>
+            <span className="text-xs text-white/55 font-mono">
+              {checkedPartIds.length} item{checkedPartIds.length > 1 ? "s" : ""} selected
+            </span>
           )}
         </div>
 

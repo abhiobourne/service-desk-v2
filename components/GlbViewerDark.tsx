@@ -44,7 +44,7 @@ function Model({ src, hotspots }: { src: string; hotspots: DarkHotspot[] }) {
         ];
         const color = hs.color ?? "#6366f1";
         return (
-          <Html key={hs.id} position={pos} center style={{ pointerEvents: "auto" }}>
+          <Html key={hs.id} position={pos} center zIndexRange={[10, 20]} style={{ pointerEvents: "auto" }}>
             <button
               onClick={e => { e.stopPropagation(); hs.onActivate(); }}
               className="group flex max-w-[180px] items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] shadow-xl backdrop-blur-md transition hover:scale-105 active:scale-95"

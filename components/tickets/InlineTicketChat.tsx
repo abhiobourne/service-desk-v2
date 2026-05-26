@@ -7,7 +7,7 @@ import { fetchTicketCommunications, getApiToken } from "../../lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import type { OrderTicket } from "../../lib/api";
 
-const SOCKET_URL = "http://localhost:7000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
 interface InlineTicketChatProps {
   ticket: OrderTicket;

@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Loader2, Paperclip, Package, ShoppingCart } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   createOrderTicket, fetchClients, fetchOrdersByClient,
   InventoryOrder, ApiClientOption, TroubleshootingDesignNode,
 } from "../../lib/api";
 import { useAuth } from "../../providers/AuthProvider";
-import { fuzzyAny } from "../../lib/search";
 
 interface AddTicketDrawerProps {
   isOpen: boolean;
@@ -67,21 +67,20 @@ export function AddTicketDrawer({
   initialProductId,
   selectedPartNodes = [],
 }: AddTicketDrawerProps) {
-  const { user } = useAuth();
+  const { user, clients: authClients } = useAuth();
   const [form, setForm] = useState<FormState>({ client_id: "", order_id: "", product_id: "", reason: "", description: "" });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [attachments, setAttachments] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [toastMsg, setToastMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   // Client options
   const [clients, setClients] = useState<ApiClientOption[]>([]);
-  const [clientSearch, setClientSearch] = useState("");
   const [loadingClients, setLoadingClients] = useState(false);
   const [orders, setOrders] = useState<InventoryOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  const effectiveClientId = loggedInClientId || initialClientId || user?.client?.id || "";
+  const loggedInUserClientId = user?.client?.id ?? authClients?.[0]?.id ?? user?.clientIds?.[0] ?? "";
+  const effectiveClientId = loggedInClientId || initialClientId || loggedInUserClientId;
 
   // Load clients.
   useEffect(() => {
@@ -119,7 +118,6 @@ export function AddTicketDrawer({
 
   const selectedOrder = orders.find((o) => o.id === form.order_id);
   const products = (selectedOrder?.items ?? selectedOrder?.line_items ?? []);
-  const filteredClients = clients.filter((client) => fuzzyAny([client.name, client.email, client.id], clientSearch));
 
   const validate = () => {
     const e: typeof errors = {};
@@ -157,7 +155,7 @@ export function AddTicketDrawer({
             design_uuid: node.design_uuid,
             design_version_uuid: node.design_version_id || null,
             troubleshooting_url: selectedOrder?.order_id && selectedProduct?.product_name
-              ? `/troubleshooting?${sp.toString()}&full=1`
+              ? `/troubleshooting/${encodeURIComponent(selectedOrder.order_id)}/${encodeURIComponent(selectedProduct.product_name)}?${sp.toString()}`
               : `/troubleshooting?${sp.toString()}`,
           };
         })),
@@ -167,17 +165,17 @@ export function AddTicketDrawer({
     const result = await createOrderTicket(fd);
     setSubmitting(false);
     if (result) {
-      setToastMsg({ type: "ok", text: "Ticket created successfully" });
-      setTimeout(() => { setToastMsg(null); onCreated?.(); onClose(); }, 1200);
+      toast.success("Ticket created successfully");
+      onCreated?.();
+      onClose();
     } else {
-      setToastMsg({ type: "err", text: "Failed to create ticket. Please try again." });
-      setTimeout(() => setToastMsg(null), 3000);
+      toast.error("Failed to create ticket. Please try again.");
     }
   };
 
   const handleClose = () => {
     setForm({ client_id: "", order_id: "", product_id: "", reason: "", description: "" });
-    setErrors({}); setAttachments([]); setToastMsg(null);
+    setErrors({}); setAttachments([]);
     onClose();
   };
 
@@ -194,12 +192,6 @@ export function AddTicketDrawer({
           </button>
         </div>
 
-        {toastMsg && (
-          <div className={`mx-4 mt-3 px-3 py-2 rounded-lg text-xs font-mono ${toastMsg.type === "ok" ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300" : "bg-red-500/15 border border-red-500/30 text-red-300"}`}>
-            {toastMsg.text}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
 
@@ -207,18 +199,11 @@ export function AddTicketDrawer({
             {!effectiveClientId && (
               <div>
                 <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">Client *</label>
-                <input
-                  type="text"
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder={loadingClients ? "Loading clients..." : "Fuzzy search clients"}
-                  className="mb-2 w-full bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-3 py-2.5 rounded-lg focus:outline-none focus:border-violet-500/50"
-                />
                 <SelectField
                   label=""
                   value={form.client_id}
                   onChange={(v) => setForm((f) => ({ ...f, client_id: v, order_id: "", product_id: "" }))}
-                  options={filteredClients.map((c) => ({ value: c.id, label: c.name }))}
+                  options={clients.map((c) => ({ value: c.id, label: c.name }))}
                   placeholder="Select client"
                   loading={loadingClients}
                 />

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, ShoppingCart, Minus, Plus, Trash2, Loader2, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { X, ShoppingCart, Minus, Plus, Trash2, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "../../providers/AuthProvider";
 import {
   fetchClientAddresses,
@@ -169,8 +170,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
   const [productSearch, setProductSearch] = useState("");
   const [showSearchList, setShowSearchList] = useState(false);
@@ -186,8 +185,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
-    setErrorMsg("");
-    setSuccessMsg("");
     setProductSearch("");
 
     const promises: Promise<any>[] = [fetchProductCatalog()];
@@ -394,20 +391,19 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loggedInClientId) {
-      setErrorMsg("No authenticated client associated with your user session.");
+      toast.error("No authenticated client associated with your user session.");
       return;
     }
     if (cart.length === 0) {
-      setErrorMsg("Please add at least one product to your order.");
+      toast.error("Please add at least one product to your order.");
       return;
     }
     if (!selectedBilling || !selectedShipping) {
-      setErrorMsg("Both Billing and Shipping addresses are required.");
+      toast.error("Both Billing and Shipping addresses are required.");
       return;
     }
 
     setSubmitting(true);
-    setErrorMsg("");
 
     // Prepare design parts json
     const allSelectedParts = cart.flatMap((item) =>
@@ -441,14 +437,14 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
 
     try {
       await createInventoryOrder(payload);
-      setSuccessMsg("ORDER DISPATCHED SUCCESSFULLY!");
+      toast.success("Order dispatched successfully!");
       setCart([]);
       setTimeout(() => {
         onOrderPlaced?.();
         onClose();
       }, 1200);
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to dispatch order. Check your input.");
+      toast.error(err.message || "Failed to dispatch order. Check your input.");
     } finally {
       setSubmitting(false);
     }
@@ -472,20 +468,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
             <X className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Messaging bars */}
-        {errorMsg && (
-          <div className="mx-4 mt-3 px-3 py-2 rounded-lg text-xs border bg-rose-500/15 border-rose-500/30 text-rose-300 flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-        {successMsg && (
-          <div className="mx-4 mt-3 px-3 py-2 rounded-lg text-xs border bg-emerald-500/15 border-emerald-500/30 text-emerald-300 flex items-start gap-2 animate-pulse">
-            <ClipboardCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
 
         {/* Main form */}
         <form onSubmit={handlePlaceOrder} className="flex-1 flex flex-col min-h-0">

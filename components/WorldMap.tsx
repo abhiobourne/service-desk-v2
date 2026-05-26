@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -26,13 +26,43 @@ const STATUS = {
 
 interface Props {
   markers?: MapMarker[];
+  loaded?: boolean;
+  autoSelectFirst?: boolean;
 }
 
-function WorldMapInner({ markers = [] }: Props) {
+function WorldMapInner({ markers = [], loaded = true, autoSelectFirst = false }: Props) {
   const [tooltip, setTooltip] = React.useState<{ name: string; detail?: string; x: number; y: number } | null>(null);
   const [selected, setSelected] = React.useState<MapMarker | null>(null);
+  const autoSelectedRef = useRef(false);
+
   const center = selected?.coordinates ?? [0, 10];
   const zoom = selected ? 3.4 : 1;
+
+  // When markers load for the first time, auto-select the first one to zoom in
+  useEffect(() => {
+    if (autoSelectFirst && loaded && markers.length > 0 && !autoSelectedRef.current) {
+      autoSelectedRef.current = true;
+      // Small delay so the map has a chance to render before transitioning
+      setTimeout(() => setSelected(markers[0]), 400);
+    }
+  }, [loaded, markers, autoSelectFirst]);
+
+  // Reset auto-select flag when markers change significantly (new data)
+  useEffect(() => {
+    if (!loaded) autoSelectedRef.current = false;
+  }, [loaded]);
+
+  if (!loaded) {
+    return (
+      <div className="relative w-full h-full bg-[#090b10] rounded overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[length:20px_20px]" />
+        <div className="flex flex-col items-center gap-3 text-white/30">
+          <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+          <span className="text-[10px] font-mono uppercase tracking-widest">Loading deployment data…</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full bg-[#090b10] rounded overflow-hidden select-none">
@@ -44,6 +74,7 @@ function WorldMapInner({ markers = [] }: Props) {
         projectionConfig={{ scale: 155, center: [0, 10] }}
         style={{ width: "100%", height: "100%" }}
       >
+        {/* transitionDuration animates center/zoom changes */}
         <ZoomableGroup center={center} zoom={zoom} minZoom={1} maxZoom={6}>
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
