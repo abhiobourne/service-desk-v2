@@ -394,6 +394,7 @@ export default function Cyber3DViewer({
   const { theme } = useTheme();
   const bgColor = theme === "light" ? "#f1f5f9" : "#090b10";
   const containerRef = useRef<HTMLDivElement>(null);
+  const orbitRef = useRef<any>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 600);
@@ -496,7 +497,7 @@ export default function Cyber3DViewer({
             {mode === "turbine" && laserScanActive && <LaserSweep />}
 
 
-            <OrbitControls makeDefault enableDamping dampingFactor={0.05} minDistance={2} maxDistance={10} />
+            <OrbitControls ref={orbitRef} makeDefault enableDamping dampingFactor={0.05} minDistance={2} maxDistance={10} />
           </Canvas>
 
           {/* Quick HUD controls */}
@@ -510,11 +511,12 @@ export default function Cyber3DViewer({
           <div className="absolute bottom-3 right-3 flex items-center gap-2 z-10">
             <button
               onClick={() => {
+                if (orbitRef.current) orbitRef.current.reset();
                 if (mode === "mri") setCalibrateScale(1.8);
                 if (mode === "diagnostics") setDiaProgress(0.5);
               }}
               title="Reset Viewport"
-              className="flex h-7 w-7 items-center justify-center rounded bg-[#121620]/90 border border-white/10 hover:border-cyan-500/30 text-white/70 hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
+              className="flex h-7 w-7 items-center justify-center rounded bg-slate-100/90 dark:bg-[#121620]/90 border border-slate-300 dark:border-white/10 hover:border-cyan-500/30 text-slate-600 dark:text-white/70 hover:text-cyan-600 dark:hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
