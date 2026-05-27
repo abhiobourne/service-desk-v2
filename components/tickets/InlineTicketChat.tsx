@@ -285,17 +285,16 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
                 <div className="text-center text-[9px] font-mono text-white/25 my-3">{fmtDay(msg.createdAt)}</div>
               )}
               <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
-                <div className={`relative px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${
-                  msg.isBackendSystem
-                    ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
-                    : msg.isSystem
+                <div className={`relative px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${msg.isBackendSystem
+                  ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
+                  : msg.isSystem
                     ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
                     : msg.sender === "user"
-                    ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
-                    : msg.isUnread
-                    ? "max-w-[70%] bg-[#0f0c1a] border border-violet-500/30 text-white/80 rounded-2xl rounded-bl-sm ring-1 ring-violet-500/20"
-                    : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
-                }`}>
+                      ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
+                      : msg.isUnread
+                        ? "max-w-[70%] bg-[#0f0c1a] border border-violet-500/30 text-white/80 rounded-2xl rounded-bl-sm ring-1 ring-violet-500/20"
+                        : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
+                  }`}>
                   {msg.isBackendSystem && (
                     <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-amber-400/60">System</div>
                   )}
@@ -336,7 +335,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder={connected ? "Secure message…" : "Connecting…"}
+            placeholder={connected ? "Start Typing" : "Connecting…"}
             disabled={!connected}
             className="flex-1 bg-white/5 rounded-full px-4 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none border border-white/5 focus:border-violet-500/30 disabled:opacity-40"
           />

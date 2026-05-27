@@ -23,11 +23,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 // Colour maps (dark theme)
 // ---------------------------------------------------------------------------
 const NODE_COLORS: Record<string, { icon: string; badge: string; badgeBg: string; row: string }> = {
-  "Product":           { icon: "text-slate-400",   badge: "text-slate-300",   badgeBg: "bg-slate-500/15 border-slate-500/25",   row: "hover:bg-slate-500/10"   },
-  "Mother Assembly":   { icon: "text-violet-400",  badge: "text-violet-300",  badgeBg: "bg-violet-500/15 border-violet-500/25",  row: "hover:bg-violet-500/10"  },
-  "Child Assembly":    { icon: "text-blue-400",    badge: "text-blue-300",    badgeBg: "bg-blue-500/15 border-blue-500/25",      row: "hover:bg-blue-500/10"    },
-  "Component":         { icon: "text-emerald-400", badge: "text-emerald-300", badgeBg: "bg-emerald-500/15 border-emerald-500/25",row: "hover:bg-emerald-500/10" },
-  "Sub-Component":     { icon: "text-amber-400",   badge: "text-amber-300",   badgeBg: "bg-amber-500/15 border-amber-500/25",    row: "hover:bg-amber-500/10"   },
+  "Product": { icon: "text-slate-400", badge: "text-slate-300", badgeBg: "bg-slate-500/15 border-slate-500/25", row: "hover:bg-slate-500/10" },
+  "Mother Assembly": { icon: "text-violet-400", badge: "text-violet-300", badgeBg: "bg-violet-500/15 border-violet-500/25", row: "hover:bg-violet-500/10" },
+  "Child Assembly": { icon: "text-blue-400", badge: "text-blue-300", badgeBg: "bg-blue-500/15 border-blue-500/25", row: "hover:bg-blue-500/10" },
+  "Component": { icon: "text-emerald-400", badge: "text-emerald-300", badgeBg: "bg-emerald-500/15 border-emerald-500/25", row: "hover:bg-emerald-500/10" },
+  "Sub-Component": { icon: "text-amber-400", badge: "text-amber-300", badgeBg: "bg-amber-500/15 border-amber-500/25", row: "hover:bg-amber-500/10" },
 };
 const DESIGN_COLORS: Record<string, string> = {
   "Product": "#64748b", "Mother Assembly": "#7c3aed", "Child Assembly": "#2563eb",
@@ -36,22 +36,22 @@ const DESIGN_COLORS: Record<string, string> = {
 const DEFAULT_NC = NODE_COLORS["Mother Assembly"];
 
 const FILE_ICONS: Record<string, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
-  pdf:  { Icon: FileText,        cls: "text-rose-400"    },
-  doc:  { Icon: FileText,        cls: "text-blue-400"    },
-  docx: { Icon: FileText,        cls: "text-blue-400"    },
-  glb:  { Icon: Box,             cls: "text-indigo-400"  },
-  gltf: { Icon: Box,             cls: "text-indigo-400"  },
+  pdf: { Icon: FileText, cls: "text-rose-400" },
+  doc: { Icon: FileText, cls: "text-blue-400" },
+  docx: { Icon: FileText, cls: "text-blue-400" },
+  glb: { Icon: Box, cls: "text-indigo-400" },
+  gltf: { Icon: Box, cls: "text-indigo-400" },
   xlsx: { Icon: FileSpreadsheet, cls: "text-emerald-400" },
-  xls:  { Icon: FileSpreadsheet, cls: "text-emerald-400" },
-  png:  { Icon: FileImage,       cls: "text-purple-400"  },
-  jpg:  { Icon: FileImage,       cls: "text-purple-400"  },
-  jpeg: { Icon: FileImage,       cls: "text-purple-400"  },
-  svg:  { Icon: FileImage,       cls: "text-purple-400"  },
-  faq:  { Icon: HelpCircle,      cls: "text-amber-400"   },
+  xls: { Icon: FileSpreadsheet, cls: "text-emerald-400" },
+  png: { Icon: FileImage, cls: "text-purple-400" },
+  jpg: { Icon: FileImage, cls: "text-purple-400" },
+  jpeg: { Icon: FileImage, cls: "text-purple-400" },
+  svg: { Icon: FileImage, cls: "text-purple-400" },
+  faq: { Icon: HelpCircle, cls: "text-amber-400" },
 };
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return FILE_ICONS[ext] ?? { Icon: File, cls: "text-white/30" };
+  return FILE_ICONS[ext] ?? { Icon: File, cls: "text-slate-600 dark:text-white/30" };
 }
 function isGlb(name: string) { const e = name.split(".").pop()?.toLowerCase(); return e === "glb" || e === "gltf"; }
 function stripHtml(s: string) { return s.replace(/<[^>]*>/g, "").trim(); }
@@ -69,7 +69,7 @@ type TreeFileItem = {
   depth: number;
   isLastChild: boolean;
 };
-type TreeFaqItem  = { kind: "faq"; nodeKey: string; count: number; depth: number; isLastChild: boolean };
+type TreeFaqItem = { kind: "faq"; nodeKey: string; count: number; depth: number; isLastChild: boolean };
 type TreeNodeItem = {
   kind: "node";
   key: string;
@@ -149,8 +149,8 @@ function Connector({ depth, isLast }: { depth: number; isLast: boolean }) {
   const left = 8 + (depth - 1) * 14 + 6;
   return (
     <>
-      <span className="pointer-events-none absolute border-l border-dashed border-white/10" style={{ left, top: 0, bottom: isLast ? "50%" : 0 }} />
-      <span className="pointer-events-none absolute h-px bg-white/10" style={{ left, top: "50%", width: 7 }} />
+      <span className="pointer-events-none absolute border-l border-dashed border-slate-200 dark:border-white/10" style={{ left, top: 0, bottom: isLast ? "50%" : 0 }} />
+      <span className="pointer-events-none absolute h-px bg-slate-100 dark:bg-white/10" style={{ left, top: "50%", width: 7 }} />
     </>
   );
 }
@@ -162,21 +162,21 @@ function FaqAccordion({ items }: { items: TroubleshootingDesignNode["faq_items"]
   const [open, setOpen] = useState<string>("");
   return (
     <div className="p-6 space-y-2 overflow-y-auto h-full">
-      <h3 className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-4">Frequently Asked Questions</h3>
+      <h3 className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest mb-4">Frequently Asked Questions</h3>
       {items.map(faq => (
-        <div key={faq.id} className="border border-white/8 rounded-lg overflow-hidden">
+        <div key={faq.id} className="border border-slate-200 dark:border-white/8 rounded-lg overflow-hidden">
           <button
             onClick={() => setOpen(o => o === faq.id ? "" : faq.id)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition"
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-100 dark:bg-white/5 transition"
           >
             <span className="text-xs font-mono text-amber-400/90 font-semibold leading-snug pr-4">{faq.question}</span>
             {open === faq.id
-              ? <ChevronDown className="h-3.5 w-3.5 text-white/30 shrink-0" />
-              : <ChevronRight className="h-3.5 w-3.5 text-white/30 shrink-0" />}
+              ? <ChevronDown className="h-3.5 w-3.5 text-slate-600 dark:text-white/30 shrink-0" />
+              : <ChevronRight className="h-3.5 w-3.5 text-slate-600 dark:text-white/30 shrink-0" />}
           </button>
           {open === faq.id && (
-            <div className="px-4 pb-4 border-t border-white/5">
-              <p className="text-[11px] font-mono text-white/50 leading-relaxed mt-3">{stripHtml(faq.answer)}</p>
+            <div className="px-4 pb-4 border-t border-slate-200 dark:border-white/5">
+              <p className="text-[11px] font-mono text-slate-600 dark:text-white/50 leading-relaxed mt-3">{stripHtml(faq.answer)}</p>
             </div>
           )}
         </div>
@@ -198,12 +198,12 @@ function DocViewer({ src, fileName, faqItems }: {
   if (!src || !fileName) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-          <FileText className="w-6 h-6 text-white/20" />
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+          <FileText className="w-6 h-6 text-slate-600 dark:text-white/20" />
         </div>
         <div>
-          <p className="text-sm font-mono text-white/30">No document selected</p>
-          <p className="text-xs font-mono text-white/20 mt-1">Click a PDF, doc, or FAQ from the tree</p>
+          <p className="text-sm font-mono text-slate-600 dark:text-white/30">No document selected</p>
+          <p className="text-xs font-mono text-slate-600 dark:text-white/20 mt-1">Click a PDF, doc, or FAQ from the tree</p>
         </div>
       </div>
     );
@@ -229,9 +229,9 @@ function DocViewer({ src, fileName, faqItems }: {
   // Fallback: open in new tab link + iframe attempt
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
         {(() => { const { Icon, cls } = fileIcon(fileName); return <Icon className={`h-3.5 w-3.5 ${cls}`} />; })()}
-        <span className="text-xs font-mono text-white/50 truncate flex-1">{fileName}</span>
+        <span className="text-xs font-mono text-slate-600 dark:text-white/50 truncate flex-1">{fileName}</span>
         <a href={src} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -258,7 +258,7 @@ function MarkdownViewer({ src }: { src: string }) {
   }, [src]);
   return (
     <div
-      className="w-full h-full overflow-auto p-6 text-[13px] text-white/70 leading-relaxed prose prose-invert prose-sm max-w-none"
+      className="w-full h-full overflow-auto p-6 text-[13px] text-slate-600 dark:text-white/70 leading-relaxed prose prose-invert prose-sm max-w-none"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -272,7 +272,7 @@ export default function TroubleshootingPage() {
   const searchParams = useSearchParams();
   const params = useParams<{ orderRef?: string; productName?: string }>();
   const { user, loading: authLoading } = useAuth();
-  
+
   const orderRef = params?.orderRef ? decodeURIComponent(params.orderRef) : "";
   const productNameFromUrl = params?.productName ? decodeURIComponent(params.productName) : "";
 
@@ -282,30 +282,30 @@ export default function TroubleshootingPage() {
   const queryClientId = searchParams.get("clientId") ?? "";
   const queryOrderId = searchParams.get("orderId") ?? "";
 
-  const [products, setProducts]           = useState<ApiProductCatalog[]>([]);
+  const [products, setProducts] = useState<ApiProductCatalog[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
-  const [allOrders, setAllOrders]         = useState<any[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
   const [selectedOrderCtx, setSelectedOrderCtx] = useState<any | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [treeNodes, setTreeNodes]         = useState<TroubleshootingDesignNode[]>([]);
-  const [expanded, setExpanded]           = useState<Set<string>>(new Set(["product-root"]));
-  const [loadingTree, setLoadingTree]     = useState(false);
+  const [treeNodes, setTreeNodes] = useState<TroubleshootingDesignNode[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["product-root"]));
+  const [loadingTree, setLoadingTree] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
 
   // Active file state
-  const [activeGlbSrc, setActiveGlbSrc]   = useState<string | null>(null);
-  const [activeGlbId, setActiveGlbId]     = useState<string | null>(null);
-  const [glbHistory, setGlbHistory]       = useState<Array<{ src: string; id: string }>>([]);
-  const [activeDocSrc, setActiveDocSrc]   = useState<string | null>(null);
+  const [activeGlbSrc, setActiveGlbSrc] = useState<string | null>(null);
+  const [activeGlbId, setActiveGlbId] = useState<string | null>(null);
+  const [glbHistory, setGlbHistory] = useState<Array<{ src: string; id: string }>>([]);
+  const [activeDocSrc, setActiveDocSrc] = useState<string | null>(null);
   const [activeDocName, setActiveDocName] = useState<string | null>(null);
   const [activeFaqNodeKey, setActiveFaqNodeKey] = useState<string | null>(null);
 
   // Nav breadcrumb path
-  const [navPath, setNavPath]             = useState<TroubleshootingDesignNode[]>([]);
+  const [navPath, setNavPath] = useState<TroubleshootingDesignNode[]>([]);
 
   // Search
-  const [search, setSearch]               = useState("");
-  const searchRef                         = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Sidebar collapse
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -330,9 +330,9 @@ export default function TroubleshootingPage() {
   // Auth guard is handled globally by DashboardLayout
 
   // Gate: both order and product must be selected before showing the 3-pane workspace
-  const hasOrderCtx   = !!(selectedOrderCtx?.id || queryOrderId || orderRef);
+  const hasOrderCtx = !!(selectedOrderCtx?.id || queryOrderId || orderRef);
   const hasProductCtx = !!selectedProductId;
-  const hasContext    = hasOrderCtx && hasProductCtx;
+  const hasContext = hasOrderCtx && hasProductCtx;
 
   // Load products catalog + orders list.
   // We eagerly set selectedProductId from the URL so the tree loads without waiting for catalog.
@@ -350,9 +350,9 @@ export default function TroubleshootingPage() {
 
       // Normalise: if the URL param matches by product_id (display) rather than UUID, resolve to UUID
       if (queryProductId) {
-        const byUuid    = list.find(p => p.id === queryProductId);
+        const byUuid = list.find(p => p.id === queryProductId);
         const byDisplay = list.find(p => p.product_id === queryProductId);
-        const resolved  = byUuid ?? byDisplay;
+        const resolved = byUuid ?? byDisplay;
         if (resolved && resolved.id !== queryProductId) {
           setSelectedProductId(resolved.id);
         }
@@ -377,7 +377,7 @@ export default function TroubleshootingPage() {
         if (matched) setSelectedOrderCtx(matched);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isFullView, queryProductId, productNameFromUrl]);
 
   // Clear part selections when order or product context changes
@@ -397,7 +397,7 @@ export default function TroubleshootingPage() {
     fetchTroubleshootingByProduct(selectedProductId).then(res => {
       if (res.success && res.data.length > 0) {
         setTreeNodes(res.data);
-        
+
         // Auto-expand and navigate to ?part= if provided
         const partParam = searchParams.get("part") ?? "";
         if (partParam) {
@@ -478,7 +478,7 @@ export default function TroubleshootingPage() {
         }
       }
     }).finally(() => setLoadingTree(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProductId]);
 
   // Keyboard shortcuts
@@ -588,7 +588,7 @@ export default function TroubleshootingPage() {
     if (!activeGlbNode) return [];
     const children = treeNodes.filter(
       n => n.parent_design_uuid === activeGlbNode.design_uuid &&
-           n.parent_version_id === activeGlbNode.design_version_id,
+        n.parent_version_id === activeGlbNode.design_version_id,
     );
     return children.reduce<DarkHotspot[]>((acc, child) => {
       const childGlb = child.drawing_files.find(f => isGlb(f.file_name));
@@ -640,7 +640,7 @@ export default function TroubleshootingPage() {
       while (cur?.parent_design_uuid) {
         const parent = treeNodes.find(
           n => n.design_uuid === cur!.parent_design_uuid &&
-               n.design_version_id === cur!.parent_version_id,
+            n.design_version_id === cur!.parent_version_id,
         );
         if (!parent) break;
         expandSet.add(parent.design_version_id || parent.design_uuid);
@@ -771,32 +771,32 @@ export default function TroubleshootingPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#06070a] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#06070a] flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-violet-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className={`${isFullView ? "fixed inset-0 z-50" : "h-screen"} flex flex-col overflow-hidden bg-[#06070a] text-white`}>
+    <div className={`${isFullView ? "fixed inset-0 z-50" : "h-screen"} flex flex-col overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white`}>
 
       {/* ─── Header ─────────────────────────────────────────────────── */}
-      <header className="h-11 shrink-0 border-b border-white/5 bg-[#090b10] flex items-center px-3 gap-3 overflow-x-auto">
+      <header className="h-11 shrink-0 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#090b10] flex items-center px-3 gap-3 overflow-x-auto">
         {/* Back */}
         <button
           onClick={() => isFullView ? window.close() : router.push("/")}
-          className="shrink-0 flex items-center gap-1.5 text-white/40 hover:text-white text-xs font-mono transition px-2 py-1 rounded hover:bg-white/5"
+          className="shrink-0 flex items-center gap-1.5 text-slate-600 dark:text-white/40 hover:text-slate-900 dark:text-white text-xs font-mono transition px-2 py-1 rounded hover:bg-slate-100 dark:bg-white/5"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {isFullView ? "Close View" : "Dashboard"}
         </button>
-        <span className="text-white/10 shrink-0">|</span>
+        <span className="text-slate-600 dark:text-white/10 shrink-0">|</span>
         {orderRef && (
           <>
             <span className="shrink-0 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded uppercase">
               Order: {orderRef}
             </span>
-            <span className="text-white/10 shrink-0">|</span>
+            <span className="text-slate-600 dark:text-white/10 shrink-0">|</span>
           </>
         )}
 
@@ -805,17 +805,16 @@ export default function TroubleshootingPage() {
           const isCurrent = i === navPath.length - 1;
           return (
             <React.Fragment key={i}>
-              <ChevronRight className="h-3 w-3 text-white/15 shrink-0" />
+              <ChevronRight className="h-3 w-3 text-slate-600 dark:text-white/15 shrink-0" />
               <span
-                className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded transition ${
-                  isCurrent
-                    ? "bg-white/8 text-white/70 cursor-default"
-                    : "text-white/40 hover:text-white hover:bg-white/5 cursor-pointer"
-                }`}
+                className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded transition ${isCurrent
+                    ? "bg-slate-100 dark:bg-white/8 text-slate-600 dark:text-white/70 cursor-default"
+                    : "text-slate-600 dark:text-white/40 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-white/5 cursor-pointer"
+                  }`}
                 onClick={() => { if (!isCurrent) setNavPath(p => p.slice(0, i + 1)); }}
               >
                 {node.design_name}
-                {node.design_type && <span className="text-white/25 ml-1">({node.design_type})</span>}
+                {node.design_type && <span className="text-slate-600 dark:text-white/25 ml-1">({node.design_type})</span>}
               </span>
             </React.Fragment>
           );
@@ -824,14 +823,13 @@ export default function TroubleshootingPage() {
         {/* Order + Product selectors + Raise Ticket */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {/* Order selector */}
-          <ClipboardList className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
           <select
             value={selectedOrderCtx?.id ?? ""}
             onChange={e => {
               const order = allOrders.find((o: any) => o.id === e.target.value) ?? null;
               setSelectedOrderCtx(order);
             }}
-            className="bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-cyan-500/50 max-w-[180px]"
+            className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-cyan-500/50 max-w-[180px]"
           >
             <option value="">{ordersLoading ? "Loading…" : "— Select order —"}</option>
             {allOrders.map((o: any) => (
@@ -840,14 +838,13 @@ export default function TroubleshootingPage() {
               </option>
             ))}
           </select>
-          <span className="text-white/10 shrink-0">|</span>
+          <span className="text-slate-300 dark:text-white/10 shrink-0\">|</span>
 
           {/* Product selector */}
-          <Package className="h-3.5 w-3.5 text-violet-400 shrink-0" />
           <select
             value={selectedProductId}
             onChange={e => setSelectedProductId(e.target.value)}
-            className="bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-violet-500/50 max-w-[220px]"
+            className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-violet-500/50 max-w-[220px]"
           >
             <option value="">{productsLoading ? "Loading…" : "— Select product —"}</option>
             {products.map(p => (
@@ -864,7 +861,7 @@ export default function TroubleshootingPage() {
               </button>
               <button
                 onClick={() => setAddTicketOpen(true)}
-                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
+                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-slate-900 dark:text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
               >
                 <Ticket className="h-3 w-3" />
                 Raise Ticket
@@ -882,13 +879,13 @@ export default function TroubleshootingPage() {
               const ctxOrderId = selectedOrderCtx?.id ?? queryOrderId;
               if (ctxClientId) qs.set("clientId", ctxClientId);
               if (ctxOrderId) qs.set("orderId", ctxOrderId);
-              
+
               const pRef = encodeURIComponent(orderRef || "VIEW");
               const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
-              
+
               window.open(`/troubleshooting/${pRef}/${pName}?${qs.toString()}`, "_blank");
             }}
-            className="flex items-center gap-1.5 rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-white/45 transition hover:border-violet-500/30 hover:text-white disabled:opacity-30"
+            className="flex items-center gap-1.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:border-violet-500/30 hover:text-slate-900 dark:text-white disabled:opacity-30"
           >
             <ExternalLink className="h-3 w-3" />
             Full View
@@ -899,14 +896,14 @@ export default function TroubleshootingPage() {
       {/* ─── Body ───────────────────────────────────────────────────── */}
       {!hasContext ? (
         /* No-context empty state */
-        <div className="flex flex-1 items-center justify-center bg-[#06070a]">
+        <div className="flex flex-1 items-center justify-center bg-slate-50 dark:bg-[#06070a]">
           <div className="flex flex-col items-center gap-4 text-center p-8 max-w-sm">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/8 flex items-center justify-center">
-              <Layers className="w-7 h-7 text-white/20" />
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 flex items-center justify-center">
+              <Layers className="w-7 h-7 text-slate-600 dark:text-white/20" />
             </div>
             <div className="space-y-1.5">
-              <p className="text-sm font-mono font-semibold text-white/50">No context selected</p>
-              <p className="text-xs font-mono text-white/25 leading-relaxed">
+              <p className="text-sm font-mono font-semibold text-slate-600 dark:text-white/50">No context selected</p>
+              <p className="text-xs font-mono text-slate-600 dark:text-white/25 leading-relaxed">
                 Open troubleshooting from an order or product to start a session.
                 Both an order and a product must be set before the workspace loads.
               </p>
@@ -928,359 +925,351 @@ export default function TroubleshootingPage() {
           </div>
         </div>
       ) : (
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* ── LEFT SIDEBAR ── */}
-        <aside
-          className={`shrink-0 flex flex-col border-r border-white/5 bg-[#090b10] transition-[width] duration-200 overflow-hidden ${
-            sidebarCollapsed ? "w-0" : "w-[300px]"
-          }`}
-        >
-          {/* Sidebar header — always-visible fuzzy search */}
-          <div className="px-2 py-1.5 border-b border-white/5 shrink-0 space-y-1.5">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[9px] font-mono text-white/25 uppercase tracking-widest truncate">
-                {selectedProduct?.product_name ?? "Assembly Structure"}
-              </span>
-              <button
-                onClick={() => setExpanded(new Set())}
-                title="Collapse all"
-                className="p-1 rounded hover:bg-white/5 text-white/25 hover:text-white/55 text-[9px] font-mono"
-              >
-                ⊟
-              </button>
-            </div>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Fuzzy search parts…"
-                className="w-full bg-white/[0.04] border border-white/8 rounded text-[10px] font-mono text-white placeholder-white/20 pl-7 pr-6 py-1.5 focus:outline-none focus:border-white/20"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-            {search.trim() && (
-              <p className="text-[9px] font-mono text-white/20 px-1">
-                {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length} match
-                {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length !== 1 ? "es" : ""}
-              </p>
-            )}
-          </div>
-
-          {/* Tree */}
-          <div className="flex-1 overflow-y-auto py-0.5 pb-0">
-            {loadingTree ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-white/30">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-xs font-mono">Loading tree…</span>
-              </div>
-            ) : treeNodes.length === 0 && !loadingTree ? (
-              <div className="text-center py-12 px-4">
-                <Package className="h-7 w-7 text-white/10 mx-auto mb-2" />
-                <p className="text-xs font-mono text-white/30">No assembly data for this product</p>
-              </div>
-            ) : flatItems.length === 0 ? (
-              <div className="text-center py-10 px-4">
-                <p className="text-xs font-mono text-white/30">No results for &ldquo;{search.trim()}&rdquo;</p>
-              </div>
-            ) : (
-              flatItems.map((item, idx) => {
-                if (item.kind === "node") {
-                  const color = NODE_COLORS[item.node.design_type] ?? DEFAULT_NC;
-                  const isActive = navPath.some(n => (n.design_version_id || n.design_uuid) === item.key) && !item.isProductRoot;
-                  const hasChildren = item.isProductRoot
-                    ? true
-                    : treeNodes.some(n => n.parent_design_uuid === item.node.design_uuid) ||
-                      item.node.drawing_files.length > 0 || item.node.kb_files.length > 0 || item.node.faq_items.length > 0;
-
-                  const isSelectable = !item.isProductRoot;
-                  const isPartSelected = selectedParts.has(item.key);
-                  return (
-                    <div
-                      key={`${item.key}-${idx}`}
-                      className={`relative flex items-center gap-1.5 py-1.5 transition-colors select-none text-xs font-mono ${
-                        isPartSelected ? "bg-violet-500/10 border-l-2 border-violet-500" :
-                        isActive ? `${color.badgeBg} border-l-2 ${item.kind === "node" ? "border-" + (color.icon.split("-")[1]) + "-500" : ""}` : color.row
-                      }`}
-                      style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
-                    >
-                      <Connector depth={item.depth} isLast={item.isLastChild} />
-                      {/* Expand toggle */}
-                      <button
-                        className="shrink-0 flex items-center justify-center"
-                        onClick={() => { if (hasChildren) toggleNode(item.key); }}
-                      >
-                        {hasChildren ? (
-                          item.isExpanded
-                            ? <ChevronDown className="h-3 w-3 text-white/25" />
-                            : <ChevronRight className="h-3 w-3 text-white/25" />
-                        ) : (
-                          <span className="h-3 w-3 flex items-center justify-center">
-                            <span className="w-1 h-1 rounded-full bg-white/20" />
-                          </span>
-                        )}
-                      </button>
-                      {/* Folder/Box icon + name (click expands) */}
-                      <button
-                        className={`flex-1 flex items-center gap-1.5 text-left cursor-pointer min-w-0`}
-                        onClick={() => { if (hasChildren) toggleNode(item.key); }}
-                      >
-                        {(item.node.design_type === "Product" || item.node.design_type === "Mother Assembly" || item.node.design_type === "Child Assembly" || item.isProductRoot)
-                          ? <Folder className={`h-3 w-3 shrink-0 ${color.icon}`} />
-                          : <Box className={`h-3 w-3 shrink-0 ${color.icon}`} />
-                        }
-                        <span className={`flex-1 truncate ${isPartSelected ? "text-violet-300 font-semibold" : isActive ? "text-white font-semibold" : "text-white/65"}`}>
-                          {item.node.design_name || item.node.design_id}
-                        </span>
-                      </button>
-                      {!item.isProductRoot && (
-                        <span className={`shrink-0 text-[8px] font-semibold tracking-wide opacity-50 ${color.badge}`}>
-                          {item.node.design_type.replace("Assembly", "Asm")}
-                        </span>
-                      )}
-                      {/* Checkbox for selectable parts */}
-                      {isSelectable && (
-                        <button
-                          onClick={e => { e.stopPropagation(); togglePartSelect(item.key); }}
-                          className={`shrink-0 ml-1 transition ${isPartSelected ? "text-violet-400" : "text-white/20 hover:text-white/50"}`}
-                          title={isPartSelected ? "Deselect part" : "Select part for ticket"}
-                        >
-                          {isPartSelected
-                            ? <CheckSquare className="h-3 w-3" />
-                            : <Square className="h-3 w-3" />}
-                        </button>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (item.kind === "faq") {
-                  const isActive = activeFaqNodeKey === item.nodeKey;
-                  return (
-                    <button
-                      key={`faq-${item.nodeKey}-${idx}`}
-                      className={`relative w-full flex items-center gap-1.5 py-1.5 text-left transition-colors text-xs font-mono ${
-                        isActive ? "bg-amber-500/15 text-amber-300" : "text-amber-400/60 hover:text-amber-400 hover:bg-white/5"
-                      }`}
-                      style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
-                      onClick={() => handleFaqClick(item.nodeKey)}
-                    >
-                      <Connector depth={item.depth} isLast={item.isLastChild} />
-                      <span className="h-3 w-3 shrink-0 flex items-center justify-center">
-                        <span className="w-1 h-1 rounded-full bg-amber-500/40" />
-                      </span>
-                      <HelpCircle className="h-3 w-3 shrink-0 text-amber-400" />
-                      <span className="flex-1 truncate">
-                        Common FAQs ({item.count})
-                      </span>
-                    </button>
-                  );
-                }
-
-                // File
-                const { Icon, cls } = fileIcon(item.name);
-                const isActiveDoc = activeDocSrc === item.url;
-                const isActiveGlb = activeGlbId === item.id;
-                const isActive = isActiveDoc || isActiveGlb;
-                const owner = treeNodes.find(n =>
-                  n.drawing_files.some(f => f.id === item.id) ||
-                  n.kb_files.some(f => f.id === item.id)
-                );
-                return (
-                    <button
-                      key={`file-${item.id}-${idx}`}
-                    className={`relative w-full flex items-center gap-1.5 py-1 text-left transition-colors text-xs font-mono ${
-                      isActive
-                        ? item.isGlb ? "bg-indigo-500/15 text-indigo-300" : "bg-blue-500/15 text-blue-300"
-                        : "text-white/45 hover:text-white/80 hover:bg-white/5"
-                    }`}
-                    style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
-                    onClick={() => handleFileClick(item, owner ?? null)}
-                  >
-                    <Connector depth={item.depth} isLast={item.isLastChild} />
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={e => {
-                        e.stopPropagation();
-                        if (owner) togglePartSelect(owner.design_version_id || owner.design_uuid);
-                      }}
-                      onKeyDown={e => {
-                        if ((e.key === "Enter" || e.key === " ") && owner) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          togglePartSelect(owner.design_version_id || owner.design_uuid);
-                        }
-                      }}
-                      className={`h-3 w-3 shrink-0 flex items-center justify-center rounded-full ${
-                        owner && selectedParts.has(owner.design_version_id || owner.design_uuid)
-                          ? "bg-violet-500/30 text-violet-200"
-                          : "hover:bg-white/10"
-                      }`}
-                      title={owner ? "Add this component to ticket" : undefined}
-                    >
-                      <span className="w-1 h-1 rounded-full bg-current opacity-60" />
-                    </span>
-                    <Icon className={`h-3 w-3 shrink-0 ${isActive ? (item.isGlb ? "text-indigo-400" : "text-blue-400") : cls}`} />
-                    <span className="flex-1 truncate text-[10px]">{item.name}</span>
-                    {item.isGlb && (
-                      <span className="shrink-0 text-[8px] font-mono opacity-50 uppercase tracking-wide">3D</span>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </aside>
-
-        {/* Sidebar toggle tab */}
-        <div className="relative shrink-0">
-          <button
-            onClick={() => setSidebarCollapsed(v => !v)}
-            title={sidebarCollapsed ? "Expand (Ctrl+B)" : "Collapse (Ctrl+B)"}
-            className="absolute top-1/2 -translate-y-1/2 z-20 w-4 h-10 bg-[#090b10] border border-white/5 border-l-0 rounded-r flex items-center justify-center cursor-pointer hover:bg-white/5 transition"
+          {/* ── LEFT SIDEBAR ── */}
+          <aside
+            className={`shrink-0 flex flex-col border-r border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#090b10] transition-[width] duration-200 overflow-hidden ${sidebarCollapsed ? "w-0" : "w-[300px]"
+              }`}
           >
-            {sidebarCollapsed
-              ? <ChevronRight className="h-3 w-3 text-white/30" />
-              : <ChevronLeft className="h-3 w-3 text-white/30" />}
-          </button>
-        </div>
-
-        {/* ── CENTER: DOC VIEWER ── */}
-        <div className="flex-1 min-w-0 flex flex-col border-r border-white/5 bg-[#06070a] overflow-hidden">
-          {/* Doc panel header */}
-          <div className="h-9 shrink-0 border-b border-white/5 flex items-center px-3 gap-2 bg-[#090b10]">
-            <FileText className="h-3.5 w-3.5 text-white/20" />
-            <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest truncate flex-1">
-              {activeFaqItems ? "FAQs" : activeDocName ?? "Document Viewer"}
-            </span>
-            {activeDocSrc && (
-              <a href={activeDocSrc} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
-            )}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <DocViewer src={activeDocSrc} fileName={activeDocName} faqItems={activeFaqItems} />
-          </div>
-        </div>
-
-        {/* ── RIGHT: 3D GLB VIEWER / AI CHAT ── */}
-        <div className="w-[480px] shrink-0 flex flex-col bg-[#06070a] overflow-hidden">
-          {/* Panel header with tabs */}
-          <div className="h-9 shrink-0 border-b border-white/5 flex items-center bg-[#090b10]">
-            <button
-              onClick={() => setRightPanel("3d")}
-              className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-white/5 transition ${
-                rightPanel === "3d" ? "text-white bg-white/5" : "text-white/30 hover:text-white/60"
-              }`}
-            >
-              <Box className="h-3 w-3" />
-              {activeGlbNode ? activeGlbNode.design_name.slice(0, 20) : "3D Viewer"}
-            </button>
-            <button
-              onClick={() => { setRightPanel("chat"); if (!chatStarted) startChat(); }}
-              className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest transition ${
-                rightPanel === "chat" ? "text-violet-400 bg-violet-500/10" : "text-white/30 hover:text-white/60"
-              }`}
-            >
-              <MessageCircle className="h-3 w-3" />
-              AI Assistant
-            </button>
-            {rightPanel === "3d" && hotspots.length > 0 && (
-              <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
-            )}
-          </div>
-
-          {/* 3D viewer */}
-          {rightPanel === "3d" && (
-            <div className="flex-1 min-h-0">
-              <GlbViewerDark
-                src={activeGlbSrc}
-                hotspots={hotspots}
-                canGoBack={glbHistory.length > 0}
-                onBack={handleGlbBack}
-                onAddActive={activeGlbNode ? () => togglePartSelect(activeGlbNodeKey) : undefined}
-                isActiveAdded={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey)}
-              />
-            </div>
-          )}
-
-          {/* AI Chat */}
-          {rightPanel === "chat" && (
-            <div className="flex-1 min-h-0 flex flex-col">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#08090e]">
-                {chatMessages.length === 0 && (
-                  <div className="text-center text-white/20 text-xs font-mono mt-12">Starting session…</div>
-                )}
-                {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] px-4 py-2.5 text-xs font-mono leading-relaxed rounded-2xl whitespace-pre-line ${
-                      msg.role === "user"
-                        ? "bg-violet-600 text-white rounded-br-sm"
-                        : "bg-white/8 text-white/70 border border-white/8 rounded-bl-sm"
-                    }`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white/8 border border-white/8 px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
-                  </div>
-                )}
-                <div ref={chatBottomRef} />
-              </div>
-
-              {/* Raise ticket bar */}
-              <div className="px-4 py-2 border-t border-white/5 flex items-center justify-between bg-[#090b10]">
-                <span className="text-[9px] font-mono text-white/20">
-                  AI · {products.find(p => p.id === selectedProductId)?.product_name ?? "Product"}
+            {/* Sidebar header — always-visible fuzzy search */}
+            <div className="px-2 py-1.5 border-b border-slate-200 dark:border-white/5 shrink-0 space-y-1.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[9px] font-mono text-slate-600 dark:text-white/25 uppercase tracking-widest truncate">
+                  {selectedProduct?.product_name ?? "Assembly Structure"}
                 </span>
                 <button
-                  onClick={() => setAddTicketOpen(true)}
-                  className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400 hover:text-amber-300 transition"
+                  onClick={() => setExpanded(new Set())}
+                  title="Collapse all"
+                  className="p-1 rounded hover:bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/25 hover:text-slate-600 dark:text-white/55 text-[9px] font-mono"
                 >
-                  <Ticket className="h-3 w-3" />
-                  Raise Ticket
+                  ⊟
                 </button>
               </div>
-
-              {/* Yes / No input */}
-              <div className="border-t border-white/5 px-3 py-2.5 flex items-center justify-end gap-2 bg-[#090b10]">
-                {chatNeedsTicket ? (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-600 dark:text-white/25" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search parts"
+                  className="w-full bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/8 rounded text-[10px] font-mono text-slate-900 dark:text-white placeholder-white/20 pl-7 pr-6 py-1.5 focus:outline-none focus:border-slate-200 dark:border-white/20"
+                />
+                {search && (
                   <button
-                    onClick={() => setAddTicketOpen(true)}
-                    className="rounded bg-amber-500 px-3 py-2 text-xs font-mono font-semibold text-black transition hover:bg-amber-400"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 dark:text-white/25 hover:text-slate-600 dark:text-white/60"
                   >
-                    Raise Ticket
+                    <X className="h-3 w-3" />
                   </button>
-                ) : chatResolved ? (
-                  <span className="text-xs font-mono text-emerald-300">Resolved</span>
-                ) : (
-                  <>
-                    <button onClick={() => handleChatResponse("No")} disabled={chatLoading} className="rounded border border-white/10 px-4 py-2 text-xs font-mono text-white/55 transition hover:bg-white/5 disabled:opacity-40">No</button>
-                    <button onClick={() => handleChatResponse("Yes")} disabled={chatLoading} className="rounded bg-violet-600 px-4 py-2 text-xs font-mono font-semibold text-white transition hover:bg-violet-500 disabled:opacity-40">Yes</button>
-                  </>
                 )}
               </div>
+              {search.trim() && (
+                <p className="text-[9px] font-mono text-slate-600 dark:text-white/20 px-1">
+                  {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length} match
+                  {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length !== 1 ? "es" : ""}
+                </p>
+              )}
             </div>
-          )}
-        </div>
 
-      </div>
+            {/* Tree */}
+            <div className="flex-1 overflow-y-auto py-0.5 pb-0">
+              {loadingTree ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-slate-600 dark:text-white/30">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs font-mono">Loading tree…</span>
+                </div>
+              ) : treeNodes.length === 0 && !loadingTree ? (
+                <div className="text-center py-12 px-4">
+                  <Package className="h-7 w-7 text-slate-600 dark:text-white/10 mx-auto mb-2" />
+                  <p className="text-xs font-mono text-slate-600 dark:text-white/30">No assembly data for this product</p>
+                </div>
+              ) : flatItems.length === 0 ? (
+                <div className="text-center py-10 px-4">
+                  <p className="text-xs font-mono text-slate-600 dark:text-white/30">No results for &ldquo;{search.trim()}&rdquo;</p>
+                </div>
+              ) : (
+                flatItems.map((item, idx) => {
+                  if (item.kind === "node") {
+                    const color = NODE_COLORS[item.node.design_type] ?? DEFAULT_NC;
+                    const isActive = navPath.some(n => (n.design_version_id || n.design_uuid) === item.key) && !item.isProductRoot;
+                    const hasChildren = item.isProductRoot
+                      ? true
+                      : treeNodes.some(n => n.parent_design_uuid === item.node.design_uuid) ||
+                      item.node.drawing_files.length > 0 || item.node.kb_files.length > 0 || item.node.faq_items.length > 0;
+
+                    const isSelectable = !item.isProductRoot;
+                    const isPartSelected = selectedParts.has(item.key);
+                    return (
+                      <div
+                        key={`${item.key}-${idx}`}
+                        className={`relative flex items-center gap-1.5 py-1.5 transition-colors select-none text-xs font-mono ${isPartSelected ? "bg-violet-500/10 border-l-2 border-violet-500" :
+                            isActive ? `${color.badgeBg} border-l-2 ${item.kind === "node" ? "border-" + (color.icon.split("-")[1]) + "-500" : ""}` : color.row
+                          }`}
+                        style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
+                      >
+                        <Connector depth={item.depth} isLast={item.isLastChild} />
+                        {/* Expand toggle */}
+                        <button
+                          className="shrink-0 flex items-center justify-center"
+                          onClick={() => { if (hasChildren) toggleNode(item.key); }}
+                        >
+                          {hasChildren ? (
+                            item.isExpanded
+                              ? <ChevronDown className="h-3 w-3 text-slate-600 dark:text-white/25" />
+                              : <ChevronRight className="h-3 w-3 text-slate-600 dark:text-white/25" />
+                          ) : (
+                            <span className="h-3 w-3 flex items-center justify-center">
+                              <span className="w-1 h-1 rounded-full bg-slate-100 dark:bg-white/20" />
+                            </span>
+                          )}
+                        </button>
+                        {/* Folder/Box icon + name (click expands) */}
+                        <button
+                          className={`flex-1 flex items-center gap-1.5 text-left cursor-pointer min-w-0`}
+                          onClick={() => { if (hasChildren) toggleNode(item.key); }}
+                        >
+                          {(item.node.design_type === "Product" || item.node.design_type === "Mother Assembly" || item.node.design_type === "Child Assembly" || item.isProductRoot)
+                            ? <Folder className={`h-3 w-3 shrink-0 ${color.icon}`} />
+                            : <Box className={`h-3 w-3 shrink-0 ${color.icon}`} />
+                          }
+                          <span className={`flex-1 truncate ${isPartSelected ? "text-violet-300 font-semibold" : isActive ? "text-slate-900 dark:text-white font-semibold" : "text-slate-600 dark:text-white/65"}`}>
+                            {item.node.design_name || item.node.design_id}
+                          </span>
+                        </button>
+                        {!item.isProductRoot && (
+                          <span className={`shrink-0 text-[8px] font-semibold tracking-wide opacity-50 ${color.badge}`}>
+                            {item.node.design_type.replace("Assembly", "Asm")}
+                          </span>
+                        )}
+                        {/* Checkbox for selectable parts */}
+                        {isSelectable && (
+                          <button
+                            onClick={e => { e.stopPropagation(); togglePartSelect(item.key); }}
+                            className={`shrink-0 ml-1 transition ${isPartSelected ? "text-violet-400" : "text-slate-600 dark:text-white/20 hover:text-slate-600 dark:text-white/50"}`}
+                            title={isPartSelected ? "Deselect part" : "Select part for ticket"}
+                          >
+                            {isPartSelected
+                              ? <CheckSquare className="h-3 w-3" />
+                              : <Square className="h-3 w-3" />}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (item.kind === "faq") {
+                    const isActive = activeFaqNodeKey === item.nodeKey;
+                    return (
+                      <button
+                        key={`faq-${item.nodeKey}-${idx}`}
+                        className={`relative w-full flex items-center gap-1.5 py-1.5 text-left transition-colors text-xs font-mono ${isActive ? "bg-amber-500/15 text-amber-300" : "text-amber-400/60 hover:text-amber-400 hover:bg-slate-100 dark:bg-white/5"
+                          }`}
+                        style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
+                        onClick={() => handleFaqClick(item.nodeKey)}
+                      >
+                        <Connector depth={item.depth} isLast={item.isLastChild} />
+                        <span className="h-3 w-3 shrink-0 flex items-center justify-center">
+                          <span className="w-1 h-1 rounded-full bg-amber-500/40" />
+                        </span>
+                        <HelpCircle className="h-3 w-3 shrink-0 text-amber-400" />
+                        <span className="flex-1 truncate">
+                          Common FAQs ({item.count})
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  // File
+                  const { Icon, cls } = fileIcon(item.name);
+                  const isActiveDoc = activeDocSrc === item.url;
+                  const isActiveGlb = activeGlbId === item.id;
+                  const isActive = isActiveDoc || isActiveGlb;
+                  const owner = treeNodes.find(n =>
+                    n.drawing_files.some(f => f.id === item.id) ||
+                    n.kb_files.some(f => f.id === item.id)
+                  );
+                  return (
+                    <button
+                      key={`file-${item.id}-${idx}`}
+                      className={`relative w-full flex items-center gap-1.5 py-1 text-left transition-colors text-xs font-mono ${isActive
+                          ? item.isGlb ? "bg-indigo-500/15 text-indigo-300" : "bg-blue-500/15 text-blue-300"
+                          : "text-slate-600 dark:text-white/45 hover:text-slate-600 dark:text-white/80 hover:bg-slate-100 dark:bg-white/5"
+                        }`}
+                      style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
+                      onClick={() => handleFileClick(item, owner ?? null)}
+                    >
+                      <Connector depth={item.depth} isLast={item.isLastChild} />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (owner) togglePartSelect(owner.design_version_id || owner.design_uuid);
+                        }}
+                        onKeyDown={e => {
+                          if ((e.key === "Enter" || e.key === " ") && owner) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePartSelect(owner.design_version_id || owner.design_uuid);
+                          }
+                        }}
+                        className={`h-3 w-3 shrink-0 flex items-center justify-center rounded-full ${owner && selectedParts.has(owner.design_version_id || owner.design_uuid)
+                            ? "bg-violet-500/30 text-violet-200"
+                            : "hover:bg-slate-100 dark:bg-white/10"
+                          }`}
+                        title={owner ? "Add this component to ticket" : undefined}
+                      >
+                        <span className="w-1 h-1 rounded-full bg-current opacity-60" />
+                      </span>
+                      <Icon className={`h-3 w-3 shrink-0 ${isActive ? (item.isGlb ? "text-indigo-400" : "text-blue-400") : cls}`} />
+                      <span className="flex-1 truncate text-[10px]">{item.name}</span>
+                      {item.isGlb && (
+                        <span className="shrink-0 text-[8px] font-mono opacity-50 uppercase tracking-wide">3D</span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+
+          {/* Sidebar toggle tab */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setSidebarCollapsed(v => !v)}
+              title={sidebarCollapsed ? "Expand (Ctrl+B)" : "Collapse (Ctrl+B)"}
+              className="absolute top-1/2 -translate-y-1/2 z-20 w-4 h-10 bg-slate-50 dark:bg-[#090b10] border border-slate-200 dark:border-white/5 border-l-0 rounded-r flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:bg-white/5 transition"
+            >
+              {sidebarCollapsed
+                ? <ChevronRight className="h-3 w-3 text-slate-600 dark:text-white/30" />
+                : <ChevronLeft className="h-3 w-3 text-slate-600 dark:text-white/30" />}
+            </button>
+          </div>
+
+          {/* ── CENTER: DOC VIEWER ── */}
+          <div className="flex-1 min-w-0 flex flex-col border-r border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#06070a] overflow-hidden">
+            {/* Doc panel header */}
+            <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center px-3 gap-2 bg-slate-50 dark:bg-[#090b10]">
+              <FileText className="h-3.5 w-3.5 text-slate-600 dark:text-white/20" />
+              <span className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest truncate flex-1">
+                {activeFaqItems ? "FAQs" : activeDocName ?? "Document Viewer"}
+              </span>
+              {activeDocSrc && (
+                <a href={activeDocSrc} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
+              )}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <DocViewer src={activeDocSrc} fileName={activeDocName} faqItems={activeFaqItems} />
+            </div>
+          </div>
+
+          {/* ── RIGHT: 3D GLB VIEWER / AI CHAT ── */}
+          <div className="w-[480px] shrink-0 flex flex-col bg-slate-50 dark:bg-[#06070a] overflow-hidden">
+            {/* Panel header with tabs */}
+            <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center bg-slate-50 dark:bg-[#090b10]">
+              <button
+                onClick={() => setRightPanel("3d")}
+                className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-slate-200 dark:border-white/5 transition ${rightPanel === "3d" ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
+                  }`}
+              >
+                <Box className="h-3 w-3" />
+                {activeGlbNode ? activeGlbNode.design_name.slice(0, 20) : "3D Viewer"}
+              </button>
+              <button
+                onClick={() => { setRightPanel("chat"); if (!chatStarted) startChat(); }}
+                className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest transition ${rightPanel === "chat" ? "text-violet-400 bg-violet-500/10" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
+                  }`}
+              >
+                <MessageCircle className="h-3 w-3" />
+                AI Assistant
+              </button>
+              {rightPanel === "3d" && hotspots.length > 0 && (
+                <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
+              )}
+            </div>
+
+            {/* 3D viewer */}
+            {rightPanel === "3d" && (
+              <div className="flex-1 min-h-0">
+                <GlbViewerDark
+                  src={activeGlbSrc}
+                  hotspots={hotspots}
+                  canGoBack={glbHistory.length > 0}
+                  onBack={handleGlbBack}
+                  onAddActive={activeGlbNode ? () => togglePartSelect(activeGlbNodeKey) : undefined}
+                  isActiveAdded={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey)}
+                />
+              </div>
+            )}
+
+            {/* AI Chat */}
+            {rightPanel === "chat" && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#08090e]">
+                  {chatMessages.length === 0 && (
+                    <div className="text-center text-slate-600 dark:text-white/20 text-xs font-mono mt-12">Starting session…</div>
+                  )}
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] px-4 py-2.5 text-xs font-mono leading-relaxed rounded-2xl whitespace-pre-line ${msg.role === "user"
+                          ? "bg-violet-600 text-slate-900 dark:text-white rounded-br-sm"
+                          : "bg-slate-100 dark:bg-white/8 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/8 rounded-bl-sm"
+                        }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-slate-100 dark:bg-white/8 border border-slate-200 dark:border-white/8 px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+
+                {/* Raise ticket bar */}
+                <div className="px-4 py-2 border-t border-slate-200 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-[#090b10]">
+                  <span className="text-[9px] font-mono text-slate-600 dark:text-white/20">
+                    AI · {products.find(p => p.id === selectedProductId)?.product_name ?? "Product"}
+                  </span>
+                  <button
+                    onClick={() => setAddTicketOpen(true)}
+                    className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400 hover:text-amber-300 transition"
+                  >
+                    <Ticket className="h-3 w-3" />
+                    Raise Ticket
+                  </button>
+                </div>
+
+                {/* Yes / No input */}
+                <div className="border-t border-slate-200 dark:border-white/5 px-3 py-2.5 flex items-center justify-end gap-2 bg-slate-50 dark:bg-[#090b10]">
+                  {chatNeedsTicket ? (
+                    <button
+                      onClick={() => setAddTicketOpen(true)}
+                      className="rounded bg-amber-500 px-3 py-2 text-xs font-mono font-semibold text-black transition hover:bg-amber-400"
+                    >
+                      Raise Ticket
+                    </button>
+                  ) : chatResolved ? (
+                    <span className="text-xs font-mono text-emerald-300">Resolved</span>
+                  ) : (
+                    <>
+                      <button onClick={() => handleChatResponse("No")} disabled={chatLoading} className="rounded border border-slate-200 dark:border-white/10 px-4 py-2 text-xs font-mono text-slate-600 dark:text-white/55 transition hover:bg-slate-100 dark:bg-white/5 disabled:opacity-40">No</button>
+                      <button onClick={() => handleChatResponse("Yes")} disabled={chatLoading} className="rounded bg-violet-600 px-4 py-2 text-xs font-mono font-semibold text-slate-900 dark:text-white transition hover:bg-violet-500 disabled:opacity-40">Yes</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
       )} {/* end hasContext */}
 
       <AddTicketDrawer

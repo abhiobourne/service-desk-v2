@@ -8,6 +8,7 @@ import {
   Marker,
   ZoomableGroup,
 } from "react-simple-maps";
+import { useTheme } from "@/providers/ThemeProvider";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 
@@ -34,6 +35,7 @@ function WorldMapInner({ markers = [], loaded = true, autoSelectFirst = false }:
   const [tooltip, setTooltip] = React.useState<{ name: string; detail?: string; x: number; y: number } | null>(null);
   const [selected, setSelected] = React.useState<MapMarker | null>(null);
   const autoSelectedRef = useRef(false);
+  const { theme } = useTheme();
 
   const center = selected?.coordinates ?? [0, 10];
   const zoom = selected ? 3.4 : 1;
@@ -65,9 +67,9 @@ function WorldMapInner({ markers = [], loaded = true, autoSelectFirst = false }:
   }
 
   return (
-    <div className="relative w-full h-full bg-[#090b10] rounded overflow-hidden select-none">
+    <div className="relative w-full h-full bg-slate-50 dark:bg-[#090b10] rounded overflow-hidden select-none">
       {/* subtle grid overlay */}
-      <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[length:20px_20px]" />
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[radial-gradient(#000000_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[length:20px_20px]" />
 
       <ComposableMap
         projection="geoNaturalEarth1"
@@ -83,9 +85,22 @@ function WorldMapInner({ markers = [], loaded = true, autoSelectFirst = false }:
                   key={geo.rsmKey}
                   geography={geo}
                   style={{
-                    default: { fill: "#1a1f2e", stroke: "#2a3040", strokeWidth: 0.4, outline: "none" },
-                    hover:   { fill: "#222840", stroke: "#3b4560", strokeWidth: 0.5, outline: "none" },
-                    pressed: { fill: "#1a1f2e", outline: "none" },
+                    default: { 
+                      fill: theme === 'light' ? '#e2e8f0' : '#1a1f2e', 
+                      stroke: theme === 'light' ? '#cbd5e1' : '#2a3040', 
+                      strokeWidth: 0.4, 
+                      outline: "none" 
+                    },
+                    hover:   { 
+                      fill: theme === 'light' ? '#cbd5e1' : '#222840', 
+                      stroke: theme === 'light' ? '#94a3b8' : '#3b4560', 
+                      strokeWidth: 0.5, 
+                      outline: "none" 
+                    },
+                    pressed: { 
+                      fill: theme === 'light' ? '#e2e8f0' : '#1a1f2e', 
+                      outline: "none" 
+                    },
                   }}
                 />
               ))
@@ -140,14 +155,14 @@ function WorldMapInner({ markers = [], loaded = true, autoSelectFirst = false }:
       </div>
 
       {selected && (
-        <div className="absolute right-3 top-3 max-w-56 rounded border border-cyan-400/20 bg-[#0c0e16]/95 p-3 font-mono shadow-xl">
-          <div className="mb-1 text-[10px] uppercase tracking-widest text-cyan-200">Installation View</div>
-          <div className="text-xs font-semibold text-white">{selected.name}</div>
-          {selected.detail && <div className="mt-1 text-[10px] text-white/45">{selected.detail}</div>}
+        <div className="absolute right-3 top-3 max-w-56 rounded border border-cyan-400/20 bg-white/95 dark:bg-[#0c0e16]/95 p-3 font-mono shadow-xl text-slate-800 dark:text-white">
+          <div className="mb-1 text-[10px] uppercase tracking-widest text-cyan-600 dark:text-cyan-200">Installation View</div>
+          <div className="text-xs font-semibold text-slate-900 dark:text-white">{selected.name}</div>
+          {selected.detail && <div className="mt-1 text-[10px] text-slate-600 dark:text-white/45">{selected.detail}</div>}
           <button
             type="button"
             onClick={() => setSelected(null)}
-            className="mt-3 rounded border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-white/45 transition hover:bg-white/5 hover:text-white"
+            className="mt-3 rounded border border-slate-300 dark:border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
           >
             World View
           </button>

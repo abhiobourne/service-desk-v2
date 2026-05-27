@@ -1,0 +1,501 @@
+/* ============================================================
+   Login screen — scoped styles
+   ============================================================ */
+
+.lp {
+  width: 100%;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg);
+  color: var(--fg);
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+/* ── Left brand panel ─────────────────────────────────────── */
+.lp-brand {
+  position: relative;
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  border-right: 1px solid var(--hairline);
+  overflow: hidden;
+}
+
+.lp-brand-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 60%, black, transparent 95%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 60%, black, transparent 95%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.lp-brand-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  left: 50%; top: 55%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, oklch(0.80 0.16 var(--accent-h) / 0.15), transparent 60%);
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+/* Header line */
+.lp-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.lp-mark {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: grid; place-items: center;
+  color: var(--accent-ink);
+  position: relative;
+  box-shadow: 0 0 28px var(--accent-glow);
+}
+.lp-mark::after {
+  content: "";
+  position: absolute; inset: -3px;
+  border-radius: 11px;
+  border: 1px solid var(--accent-dim);
+}
+
+.lp-wordmark {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.lp-wordmark-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* Hero copy block */
+.lp-hero {
+  margin-top: auto;
+  margin-bottom: auto;
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+}
+.lp-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp-eyebrow .bar {
+  width: 20px; height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.lp-headline {
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0;
+  text-wrap: balance;
+}
+.lp-headline em {
+  font-style: normal;
+  color: var(--accent);
+  text-shadow: 0 0 18px var(--accent-glow);
+}
+.lp-sub {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 18px 0 0;
+  max-width: 380px;
+}
+
+/* Visual: orbital MRI silhouette */
+.lp-visual {
+  position: absolute;
+  right: -160px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 540px;
+  height: 540px;
+  pointer-events: none;
+  opacity: 0.45;
+  z-index: 0;
+}
+
+/* Status row at bottom */
+.lp-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 32px;
+}
+.lp-status-item { display: flex; align-items: center; gap: 6px; }
+.lp-status-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+/* ── Right form panel ─────────────────────────────────────── */
+.lp-form-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 48px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.lp-top-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lp-region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--fg-2);
+}
+
+.lp-form {
+  margin: auto;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.lp-title {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lp-title h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.lp-title p {
+  margin: 0;
+  color: var(--fg-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lp-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lp-label a {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.lp-label a:hover { text-decoration: underline; }
+
+.lp-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 6px;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative;
+}
+.lp-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.lp-input input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  letter-spacing: -0.005em;
+}
+.lp-input input::placeholder {
+  color: var(--fg-4);
+}
+.lp-input svg { color: var(--fg-3); flex-shrink: 0; }
+
+.lp-input-affix {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.lp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lp-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.lp-checkbox-box {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  display: grid; place-items: center;
+  transition: all .12s;
+}
+.lp-checkbox input { display: none; }
+.lp-checkbox input:checked + .lp-checkbox-box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.lp-checkbox input:checked + .lp-checkbox-box::after {
+  content: "✓";
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lp-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 0 28px var(--accent-glow), 0 1px 0 rgba(255,255,255,.1) inset;
+  transition: filter .12s, transform .08s;
+  letter-spacing: 0.01em;
+}
+.lp-submit:hover { filter: brightness(1.08); }
+.lp-submit:active { transform: translateY(1px); }
+.lp-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Footer */
+.lp-footer {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-4);
+  letter-spacing: 0.06em;
+}
+.lp-footer a { color: var(--fg-3); text-decoration: none; }
+.lp-footer a:hover { color: var(--fg); }
+
+/* Lower-right helper / "trouble signing in" */
+.lp-help {
+  position: relative;
+  z-index: 1;
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.lp-help-glyph {
+  width: 30px; height: 30px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: oklch(0.80 0.16 var(--accent-h) / 0.10);
+  border: 1px solid var(--accent-dim);
+  display: grid; place-items: center;
+  color: var(--accent);
+}
+.lp-help-title {
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 0 2px;
+}
+.lp-help-body {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-3);
+  line-height: 1.5;
+}
+
+/* Subtle scanline on whole brand panel */
+.lp-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 3px,
+    rgba(255,255,255,0.012) 3px 4px
+  );
+  z-index: 0;
+}
+
+/* Corner registration marks */
+.lp-reg {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--hairline-strong);
+  opacity: 0.7;
+}
+.lp-reg.tl { top: 16px; left: 16px; border-right: 0; border-bottom: 0; }
+.lp-reg.tr { top: 16px; right: 16px; border-left: 0; border-bottom: 0; }
+.lp-reg.bl { bottom: 16px; left: 16px; border-right: 0; border-top: 0; }
+.lp-reg.br { bottom: 16px; right: 16px; border-left: 0; border-top: 0; }
+
+/* Telemetry strip on brand */
+.lp-telemetry {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 24px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+.lp-tele {
+  flex: 1;
+}
+.lp-tele-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-4);
+  margin-bottom: 6px;
+}
+.lp-tele-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.lp-tele-unit {
+  font-size: 11px;
+  color: var(--fg-3);
+  margin-left: 4px;
+}
+
+/* Custom CSS Variables */
+:root {
+  --font-sans: 'Geist', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+.lp[data-theme="dark"] {
+  --bg: #0a0c10;
+  --bg-deep: #050608;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.15);
+  --line-soft: rgba(255, 255, 255, 0.04);
+  --fg: #ffffff;
+  --fg-2: rgba(255, 255, 255, 0.8);
+  --fg-3: rgba(255, 255, 255, 0.5);
+  --fg-4: rgba(255, 255, 255, 0.3);
+  
+  --accent: oklch(0.80 0.16 var(--accent-h));
+  --accent-ink: #000000;
+  --accent-dim: oklch(0.80 0.16 var(--accent-h) / 0.2);
+  --accent-glow: oklch(0.80 0.16 var(--accent-h) / 0.25);
+  
+  --success: #10b981;
+}
+
+.lp[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-deep: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.15);
+  --line-soft: rgba(0, 0, 0, 0.04);
+  --fg: #0f172a;
+  --fg-2: #334155;
+  --fg-3: #64748b;
+  --fg-4: #94a3b8;
+  
+  --accent: oklch(0.55 0.16 var(--accent-h));
+  --accent-ink: #ffffff;
+  --accent-dim: oklch(0.55 0.16 var(--accent-h) / 0.2);
+  --accent-glow: oklch(0.55 0.16 var(--accent-h) / 0.15);
+  
+  --success: #10b981;
+}

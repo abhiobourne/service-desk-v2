@@ -633,21 +633,6 @@ export async function fetchTroubleshootingByProduct(
   }
 }
 
-export async function fetchUnreadNotifications(): Promise<any[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/ticket-communication/unread`, {
-      headers: authHeaders(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return data.success ? data.data : [];
-  } catch (error) {
-    console.error("[fetchUnreadNotifications] err", error);
-    return [];
-  }
-}
-
-
 // ---------------------------------------------------------------------------
 // Ticketing — full order ticket types
 // ---------------------------------------------------------------------------

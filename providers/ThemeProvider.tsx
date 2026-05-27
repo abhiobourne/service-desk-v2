@@ -20,6 +20,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const resolved: Theme = stored === "light" ? "light" : "dark";
     setTheme(resolved);
     document.documentElement.classList.toggle("light", resolved === "light");
+    document.documentElement.classList.toggle("dark", resolved === "dark");
   }, []);
 
   const toggleTheme = () => {
@@ -27,6 +28,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const next: Theme = prev === "dark" ? "light" : "dark";
       localStorage.setItem("industrial_os_theme", next);
       document.documentElement.classList.toggle("light", next === "light");
+      document.documentElement.classList.toggle("dark", next === "dark");
       return next;
     });
   };

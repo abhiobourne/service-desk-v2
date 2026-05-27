@@ -62,11 +62,14 @@ export interface DynamicHotspot {
  * Dynamically streams actual ViewRay portal GLB drawings into Three.js.
  */
 function PortalGltfModel({ mode, activeGlbUrl, dynamicHotspots = [] }: { mode: string, activeGlbUrl?: string | null, dynamicHotspots?: DynamicHotspot[] }) {
+  const isBrowser = typeof window !== "undefined";
+  const baseUrl = isBrowser ? `http://${window.location.hostname}:7000/api/v1/files` : "http://127.0.0.1:7000/api/v1/files";
+
   const modelUrlMap: Record<string, string> = {
-    turbine: "http://localhost:7000/api/v1/files/1778652509459-981429694-engine_four_cylinder_low_poly__game_ready.glb",
-    mri: "http://localhost:7000/api/v1/files/1778652526973-16052661-bmw_rds_radio.glb",
-    diagnostics: "http://localhost:7000/api/v1/files/1779436322796-183340015-better_exhaust.glb",
-    "component-ordering": "http://localhost:7000/api/v1/files/1778652561181-732556382-better_gauges.glb",
+    turbine: `${baseUrl}/1778652509459-981429694-engine_four_cylinder_low_poly__game_ready.glb`,
+    mri: `${baseUrl}/1778652526973-16052661-bmw_rds_radio.glb`,
+    diagnostics: `${baseUrl}/1779436322796-183340015-better_exhaust.glb`,
+    "component-ordering": `${baseUrl}/1778652561181-732556382-better_gauges.glb`,
   };
 
   const url = activeGlbUrl || modelUrlMap[mode] || modelUrlMap.turbine;
@@ -386,6 +389,7 @@ export default function Cyber3DViewer({
   const [diaProgress, setDiaProgress] = useState(0.5);
   const { theme } = useTheme();
   const bgColor = theme === "light" ? "#f1f5f9" : "#090b10";
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 600);
@@ -424,7 +428,7 @@ export default function Cyber3DViewer({
   }, [diagnosticActive]);
 
   return (
-    <div className="relative w-full h-full min-h-[300px] flex items-center justify-center rounded-lg overflow-hidden border border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
+    <div ref={containerRef} className="relative w-full h-full min-h-[300px] flex items-center justify-center rounded-lg overflow-hidden border border-slate-200 dark:border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
       {/* Cybernetic HUD elements overlay */}
       <div className="absolute inset-0 border border-[#06b6d4]/10 pointer-events-none rounded-lg" />
       
@@ -512,7 +516,14 @@ export default function Cyber3DViewer({
             </button>
             <button
               title="Toggle Fullscreen"
-              className="flex h-7 w-7 items-center justify-center rounded bg-[#121620]/90 border border-white/10 hover:border-cyan-500/30 text-white/70 hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
+              onClick={() => {
+                if (!document.fullscreenElement) {
+                  containerRef.current?.requestFullscreen();
+                } else {
+                  document.exitFullscreen();
+                }
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded bg-slate-100/90 dark:bg-[#121620]/90 border border-slate-300 dark:border-white/10 hover:border-cyan-500/30 text-slate-600 dark:text-white/70 hover:text-cyan-600 dark:hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </button>

@@ -79,7 +79,13 @@ export function TopNavbar() {
                   notifications.slice(0, 20).map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => markRead(n.id)}
+                      onClick={() => {
+                        markRead(n.id);
+                        setNotifOpen(false);
+                        if (n.ticketId) {
+                          router.push(`/tickets/${n.ticketId}`);
+                        }
+                      }}
                       className={`px-4 py-3 hover:bg-white/3 transition cursor-pointer ${!n.isRead ? "bg-white/[0.02]" : ""}`}
                     >
                       <div className="flex items-start gap-2.5">
@@ -139,8 +145,8 @@ export function TopNavbar() {
                     <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
                   </div>
                   {/* Pill toggle */}
-                  <div className={`relative w-8 h-4 rounded-full transition-colors ${theme === "light" ? "bg-blue-500" : "bg-white/15"}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${theme === "light" ? "translate-x-4" : "translate-x-0.5"}`} />
+                  <div className={`relative w-8 h-4 shrink-0 rounded-full transition-colors ${theme === "light" ? "bg-blue-500" : "bg-white/15"}`}>
+                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${theme === "light" ? "translate-x-[18px]" : "translate-x-0.5"}`} />
                   </div>
                 </button>
 

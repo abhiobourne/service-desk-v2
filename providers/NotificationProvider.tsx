@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthProvider";
-import { getApiToken } from "../lib/api";
+import { getApiToken, fetchUnreadNotifications } from "../lib/api";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
@@ -40,6 +40,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const token = getApiToken();
     if (!token) return;
+
+    fetchUnreadNotifications().then((unread) => {
+      setNotifications((prev) => {
+        const newNotifs = unread.filter(u => !prev.some(p => p.id === u.id)).map(u => ({
+          id: u.id,
+          type: u.event_key || u.type || "ticket",
+          title: "New ticket message",
+          message: u.message || "",
+          ticketId: u.ticket_id,
+          createdAt: u.createdAt,
+          isRead: false
+        }));
+        return [...newNotifs, ...prev].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      });
+    });
 
     const sock = io(`${SOCKET_URL}/ticket-communication`, {
       path: "/socket.io/",

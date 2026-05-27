@@ -48,8 +48,8 @@ function Model({ src, hotspots }: { src: string; hotspots: DarkHotspot[] }) {
           <Html key={hs.id} position={pos} center zIndexRange={[10, 20]} style={{ pointerEvents: "auto" }}>
             <button
               onClick={e => { e.stopPropagation(); hs.onActivate(); }}
-              className="group flex max-w-[180px] items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] shadow-xl backdrop-blur-md transition hover:scale-105 active:scale-95"
-              style={{ borderColor: `${color}55`, background: `rgba(0,0,0,0.75)`, color: "#fff" }}
+              className="group flex max-w-[180px] items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] shadow-xl backdrop-blur-md transition hover:scale-105 active:scale-95 bg-white/90 text-slate-900 dark:bg-black/75 dark:text-white"
+              style={{ borderColor: `${color}55` }}
             >
               <span
                 className="h-4 w-4 shrink-0 flex items-center justify-center rounded-full text-[9px] font-bold text-white shadow"
@@ -71,9 +71,9 @@ function ProgressOverlay() {
   const { active, progress } = useProgress();
   if (!active) return null;
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#06070a]/80 z-10 pointer-events-none">
-      <Loader2 className="h-8 w-8 text-violet-400 animate-spin mb-3" />
-      <span className="text-[11px] font-mono text-white/40">{Math.round(progress)}%</span>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#06070a]/80 z-10 pointer-events-none">
+      <Loader2 className="h-8 w-8 text-violet-500 dark:text-violet-400 animate-spin mb-3" />
+      <span className="text-[11px] font-mono text-slate-600 dark:text-white/40">{Math.round(progress)}%</span>
     </div>
   );
 }
@@ -95,12 +95,12 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
   if (!src) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: bgColor }}>
-        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-          <Box className="w-7 h-7 text-white/20" />
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+          <Box className="w-7 h-7 text-slate-400 dark:text-white/20" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-mono text-white/30">No 3D file selected</p>
-          <p className="text-xs font-mono text-white/20 mt-1">Click a .glb file in the tree to view it</p>
+          <p className="text-sm font-mono text-slate-600 dark:text-white/30">No 3D file selected</p>
+          <p className="text-xs font-mono text-slate-500 dark:text-white/20 mt-1">Click a .glb file in the tree to view it</p>
         </div>
       </div>
     );
@@ -131,12 +131,12 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
       <ProgressOverlay />
 
       {/* Bottom-left hint */}
-      <div className="pointer-events-none absolute left-2.5 bottom-2.5 flex items-center gap-1.5 rounded-md border border-white/8 bg-black/50 px-2.5 py-1 text-[10px] text-white/30 backdrop-blur-sm font-mono">
+      <div className="pointer-events-none absolute left-2.5 bottom-2.5 flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-white/8 bg-white/80 dark:bg-black/50 px-2.5 py-1 text-[10px] text-slate-600 dark:text-white/30 backdrop-blur-sm font-mono shadow-sm">
         Drag · scroll · right-drag to pan
       </div>
 
       {hotspots.length > 0 && (
-        <div className="pointer-events-none absolute bottom-9 left-2.5 rounded-md border border-violet-500/20 bg-black/60 px-2.5 py-1 text-[10px] font-mono text-violet-300/50 backdrop-blur-sm">
+        <div className="pointer-events-none absolute bottom-9 left-2.5 rounded-md border border-violet-300 dark:border-violet-500/20 bg-violet-50/80 dark:bg-black/60 px-2.5 py-1 text-[10px] font-mono text-violet-700 dark:text-violet-300/50 backdrop-blur-sm shadow-sm">
           Click a hotspot to drill into child assembly
         </div>
       )}
@@ -146,10 +146,10 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
         {onAddActive && (
           <button
             onClick={onAddActive}
-            className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-mono backdrop-blur-sm transition ${
+            className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-mono backdrop-blur-sm transition shadow-sm ${
               isActiveAdded
-                ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-200"
-                : "border-violet-500/30 bg-black/50 text-violet-200 hover:border-violet-400/60"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-200"
+                : "border-violet-300 bg-white/80 text-violet-700 hover:border-violet-400 dark:border-violet-500/30 dark:bg-black/50 dark:text-violet-200 dark:hover:border-violet-400/60"
             }`}
             title={isActiveAdded ? "Remove component from ticket" : "Add component to ticket"}
           >
@@ -160,7 +160,7 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
         {canGoBack && (
           <button
             onClick={onBack}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-black/50 text-white/50 backdrop-blur-sm transition hover:border-white/30 hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-300 dark:border-white/10 bg-white/80 dark:bg-black/50 text-slate-600 dark:text-white/50 backdrop-blur-sm transition hover:border-slate-400 dark:hover:border-white/30 hover:text-slate-900 dark:hover:text-white shadow-sm"
             title="Back to previous assembly"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -168,10 +168,10 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
         )}
         <button
           onClick={() => setShowGrid(v => !v)}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg border backdrop-blur-sm transition ${
+          className={`flex h-7 w-7 items-center justify-center rounded-lg border backdrop-blur-sm transition shadow-sm ${
             showGrid
-              ? "border-violet-500/40 bg-violet-500/20 text-violet-300"
-              : "border-white/10 bg-black/50 text-white/50 hover:border-white/30 hover:text-white"
+              ? "border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-300"
+              : "border-slate-300 bg-white/80 text-slate-600 hover:border-slate-400 hover:text-slate-900 dark:border-white/10 dark:bg-black/50 dark:text-white/50 dark:hover:border-white/30 dark:hover:text-white"
           }`}
           title="Toggle grid"
         >

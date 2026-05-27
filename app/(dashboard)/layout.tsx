@@ -48,14 +48,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (isFullView) {
     return (
-      <div className="h-screen overflow-hidden bg-[#06070a] text-white">
+      <div className="h-screen overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white">
         {children}
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#06070a] text-white">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white">
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopNavbar />

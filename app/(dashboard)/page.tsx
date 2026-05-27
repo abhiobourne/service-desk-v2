@@ -100,6 +100,116 @@ const FILE_EXT_COLORS: Record<string, string> = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
+const LiveTrendChart = () => {
+  const [data, setData] = useState<{ time: number; value: number }[]>([]);
+
+  useEffect(() => {
+    // Initialize data
+    const initialData = Array.from({ length: 60 }).map((_, i) => ({
+      time: Date.now() - (60 - i) * 1000,
+      value: 360 + (Math.sin(i / 5) * 5) + Math.random() * 2,
+    }));
+    setData(initialData);
+
+    const interval = setInterval(() => {
+      setData((prev) => {
+        const next = [...prev.slice(1)];
+        const lastVal = next[next.length - 1].value;
+        const newVal = lastVal + (Math.random() - 0.5) * 2;
+        next.push({ time: Date.now(), value: Math.max(340, Math.min(385, newVal)) });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const latestValue = data.length > 0 ? data[data.length - 1].value.toFixed(2) : "0.00";
+
+  return (
+    <div className="bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/5 p-4 flex flex-col flex-1 rounded-lg">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6 text-slate-500 dark:text-slate-400">
+        <div className="flex flex-col gap-3">
+          <span className="text-[10px] font-mono tracking-widest text-slate-500 dark:text-[#64748b]">TREND &middot; 24H</span>
+          <span className="text-[10px] font-mono tracking-widest text-slate-500 dark:text-[#64748b]">Nitrogen Level</span>
+        </div>
+        <div className="text-xl font-mono text-slate-900 dark:text-white flex items-end gap-1">
+          {latestValue} <span className="text-xs text-slate-500 dark:text-[#64748b] mb-1">K</span>
+        </div>
+      </div>
+
+      {/* Chart container */}
+      <div className="flex-1 relative mt-2 w-full min-h-[100px]">
+        {/* Y Axis labels */}
+        <div className="absolute left-0 top-0 bottom-6 w-8 flex flex-col justify-between text-[10px] text-slate-400 dark:text-[#475569] font-mono z-10">
+          <span>385</span>
+          <span>361</span>
+          <span>338</span>
+        </div>
+
+        {/* X Axis labels */}
+        <div className="absolute left-8 right-2 bottom-0 h-6 flex justify-between items-end text-[10px] text-slate-400 dark:text-[#475569] font-mono z-10">
+          <span>-10m</span>
+          <span>-5m</span>
+          <span>NOW</span>
+        </div>
+
+        {/* SVG Graph */}
+        <div className="absolute left-8 right-2 top-0 bottom-6">
+          <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="gradientRed" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ff4d4f" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#ff4d4f" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Draw Path */}
+            {(() => {
+              if (data.length === 0) return null;
+              const minVal = 338;
+              const maxVal = 385;
+              const range = maxVal - minVal;
+              const points = data.map((d, i) => {
+                const x = (i / (data.length - 1)) * 100;
+                const y = Math.max(0, Math.min(100, 100 - ((d.value - minVal) / range) * 100));
+                return `${x},${y}`;
+              });
+              const pathStr = `M ${points[0]} L ${points.join(" L ")}`;
+              const areaPathStr = `${pathStr} L 100,100 L 0,100 Z`;
+              const lastY = 100 - ((data[data.length - 1].value - minVal) / range) * 100;
+
+              return (
+                <>
+                  <path d={areaPathStr} fill="url(#gradientRed)" />
+                  <path d={pathStr} fill="none" stroke="#ff4d4f" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+
+                  {/* Pulsing dot */}
+                  <circle
+                    cx="100"
+                    cy={lastY}
+                    r="2"
+                    fill="#ff4d4f"
+                  />
+                  <circle
+                    cx="100"
+                    cy={lastY}
+                    r="4"
+                    fill="#ff4d4f"
+                    opacity="0.5"
+                    className="animate-ping"
+                    style={{ transformOrigin: `100px ${lastY}px` }}
+                  />
+                </>
+              );
+            })()}
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export default function NextGenDashboard() {
   const router = useRouter();
   const { user, logout, loading: authLoading, isClientUser } = useAuth();
@@ -181,6 +291,18 @@ export default function NextGenDashboard() {
 
   // Live telemetry — fluctuating values for Digital Twin
   const [liveTelem, setLiveTelem] = useState({ nitrogen: 98.2, coreTemp: 4.2, pressure: 42.5, sysLoad: 74 });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLiveTelem(prev => ({
+        nitrogen: Math.max(0, Math.min(100, prev.nitrogen + (Math.random() - 0.5) * 0.1)),
+        coreTemp: Math.max(0, Math.min(10, prev.coreTemp + (Math.random() - 0.5) * 0.05)),
+        pressure: Math.max(0, Math.min(100, prev.pressure + (Math.random() - 0.5) * 0.5)),
+        sysLoad: Math.max(0, Math.min(100, prev.sysLoad + (Math.random() - 0.5) * 2)),
+      }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Diagnostics specific controls
   const [diagnosticRunning, setDiagnosticRunning] = useState(false);
@@ -321,10 +443,10 @@ export default function NextGenDashboard() {
   useEffect(() => {
     const id = setInterval(() => {
       setLiveTelem(prev => ({
-        nitrogen:  +Math.max(97.4, Math.min(99.2, prev.nitrogen  + (Math.random() - 0.5) * 0.3)).toFixed(1),
-        coreTemp:  +Math.max(4.05, Math.min(4.48, prev.coreTemp  + (Math.random() - 0.5) * 0.06)).toFixed(2),
-        pressure:  +Math.max(40.8, Math.min(44.8, prev.pressure  + (Math.random() - 0.5) * 0.5)).toFixed(1),
-        sysLoad:   +Math.max(64,   Math.min(88,   prev.sysLoad   + (Math.random() - 0.5) * 4)).toFixed(0),
+        nitrogen: +Math.max(97.4, Math.min(99.2, prev.nitrogen + (Math.random() - 0.5) * 0.3)).toFixed(1),
+        coreTemp: +Math.max(4.05, Math.min(4.48, prev.coreTemp + (Math.random() - 0.5) * 0.06)).toFixed(2),
+        pressure: +Math.max(40.8, Math.min(44.8, prev.pressure + (Math.random() - 0.5) * 0.5)).toFixed(1),
+        sysLoad: +Math.max(64, Math.min(88, prev.sysLoad + (Math.random() - 0.5) * 4)).toFixed(0),
       }));
     }, 1400);
     return () => clearInterval(id);
@@ -454,7 +576,7 @@ export default function NextGenDashboard() {
 
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#07090e]">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-[#07090e]">
 
       {/* -------------------- DYNAMIC CONTENT ROUTER -------------------- */}
       <div className="flex-1 overflow-y-auto p-8">
@@ -464,30 +586,30 @@ export default function NextGenDashboard() {
           <div className="space-y-8 animate-fadeIn">
             {/* Fleet Header */}
             <div>
-              <h2 className="text-2xl font-bold tracking-tight font-mono text-white">Global Fleet Status</h2>
-              <p className="text-xs text-white/50 font-mono uppercase mt-1">Monitoring 288 high-acuity diagnostic machines across 12 regions.</p>
+              <h2 className="text-2xl font-bold tracking-tight font-mono text-slate-900 dark:text-white">Global Fleet Status</h2>
+              <p className="text-xs text-slate-600 dark:text-white/50 font-mono uppercase mt-1">Monitoring 288 high-acuity diagnostic machines across 12 regions.</p>
             </div>
 
             {/* Top Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-[#06b6d4]/30 transition duration-300">
+              <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-[#06b6d4]/30 transition duration-300">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-[#06b6d4]/5 rounded-bl-full pointer-events-none transition group-hover:bg-[#06b6d4]/10" />
-                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Fleet Uptime</span>
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Fleet Uptime</span>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-3xl font-bold font-mono text-glow-cyan text-cyan-400">99.8%</span>
                   <span className="text-xs font-mono text-emerald-400 font-bold flex items-center gap-0.5">
                     <TrendingUp className="h-3 w-3" /> +0.2%
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-white/30 block mt-2">vs last week benchmark</span>
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/30 block mt-2">vs last week benchmark</span>
               </div>
 
-              <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-amber-500/30 transition duration-300">
+              <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-amber-500/30 transition duration-300">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full pointer-events-none" />
-                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Active Alerts</span>
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Active Alerts</span>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-3xl font-bold font-mono text-glow-amber text-amber-500">14</span>
-                  <span className="text-xs font-mono text-white/40 uppercase font-semibold">Critical Priority</span>
+                  <span className="text-xs font-mono text-slate-600 dark:text-white/40 uppercase font-semibold">Critical Priority</span>
                 </div>
                 <div className="flex gap-3 text-[10px] font-mono mt-2">
                   <span className="text-rose-400 font-semibold">• 2 Critical</span>
@@ -495,14 +617,14 @@ export default function NextGenDashboard() {
                 </div>
               </div>
 
-              <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-blue-500/30 transition duration-300">
+              <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg relative overflow-hidden group hover:border-blue-500/30 transition duration-300">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full pointer-events-none" />
-                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Avg Resolution Time</span>
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Avg Resolution Time</span>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-3xl font-bold font-mono text-blue-400">1.2 <span className="text-sm">hrs</span></span>
-                  <span className="text-xs font-mono text-white/30">Target &lt; 2.0 hrs</span>
+                  <span className="text-xs font-mono text-slate-600 dark:text-white/30">Target &lt; 2.0 hrs</span>
                 </div>
-                <div className="w-full bg-white/5 rounded-full h-1.5 mt-3 overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 mt-3 overflow-hidden">
                   <div className="bg-blue-500 h-full rounded-full" style={{ width: "60%" }} />
                 </div>
               </div>
@@ -512,10 +634,10 @@ export default function NextGenDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Left panel: World Topology */}
-              <div className="lg:col-span-2 bg-[#0c0e16] border border-white/5 p-6 rounded-lg flex flex-col">
+              <div className="lg:col-span-2 bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg flex flex-col">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-mono text-white/40 uppercase tracking-wider">Deployment Topology</h3>
-                  <div className="flex items-center gap-3 text-[9px] font-mono text-white/30 uppercase">
+                  <h3 className="text-xs font-mono text-slate-600 dark:text-white/40 uppercase tracking-wider">Deployment Topology</h3>
+                  <div className="flex items-center gap-3 text-[9px] font-mono text-slate-600 dark:text-white/30 uppercase">
                     <span>{deploymentMarkers.filter(m => m.status === "nominal").length} nominal</span>
                     <span className="text-amber-400">{deploymentMarkers.filter(m => m.status === "warning").length} warning</span>
                     <span className="text-rose-400">{deploymentMarkers.filter(m => m.status === "critical").length} critical</span>
@@ -529,31 +651,12 @@ export default function NextGenDashboard() {
               {/* Right panel: Core Telemetry Trends */}
               <div className="space-y-6 flex flex-col justify-between">
                 {/* Liquid Nitrogen Trend */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg flex-1 flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Liquid Nitrogen (Avg)</span>
-                    <span className="text-xs font-mono font-bold text-white">42.8 <span className="text-[10px] text-white/40">Ltr/hr</span></span>
-                  </div>
-                  <div className="flex-1 min-h-[100px]">
-                    <ResponsiveContainer width="100%" height={100}>
-                      <AreaChart data={FLOW_DATA}>
-                        <defs>
-                          <linearGradient id="colorNitrogen" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <Tooltip contentStyle={{ background: "#0c0e16", border: "1px solid rgba(255,255,255,0.1)", fontSize: "10px" }} />
-                        <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorNitrogen)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                <LiveTrendChart />
 
                 {/* Core Temp Trends */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg flex-1 flex flex-col">
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg flex-1 flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Core Temp (Median)</span>
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Core Temp (Median)</span>
                     <span className="text-xs font-mono font-bold text-emerald-400">4.2 °K</span>
                   </div>
                   <div className="flex-1 min-h-[100px]">
@@ -570,9 +673,9 @@ export default function NextGenDashboard() {
             </div>
 
             {/* Bottom Critical Units List Table */}
-            <div className="bg-[#0c0e16] border border-white/5 rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                <span className="text-xs font-mono text-white/40 uppercase tracking-widest">Critical Units List</span>
+            <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                <span className="text-xs font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest">Critical Units List</span>
                 <button
                   onClick={() => goToTickets()}
                   className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition uppercase"
@@ -584,7 +687,7 @@ export default function NextGenDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
                   <thead>
-                    <tr className="border-b border-white/5 text-white/40 bg-white/[0.01]">
+                    <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/40 bg-slate-100 dark:bg-white/[0.01]">
                       <th className="px-6 py-3 font-semibold uppercase">Machine ID</th>
                       <th className="px-6 py-3 font-semibold uppercase">Location</th>
                       <th className="px-6 py-3 font-semibold uppercase">Status</th>
@@ -595,7 +698,7 @@ export default function NextGenDashboard() {
                   <tbody className="divide-y divide-white/5">
                     {machines.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-xs font-mono text-white/30">
+                        <td colSpan={5} className="px-6 py-8 text-center text-xs font-mono text-slate-600 dark:text-white/30">
                           {loading ? "Loading machines…" : "No machines found."}
                         </td>
                       </tr>
@@ -608,24 +711,24 @@ export default function NextGenDashboard() {
                           m.status === "MAINTENANCE" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                             "bg-rose-500/10 text-rose-400 border-rose-500/20";
                       return (
-                        <tr key={m.id} className="hover:bg-white/[0.02]">
-                          <td className="px-6 py-4 font-bold text-white">
+                        <tr key={m.id} className="hover:bg-slate-100 dark:bg-white/[0.02]">
+                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
                             <div className="flex items-center gap-2">
                               <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
                               {m.name}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-white/70">{m.machine_id || m.id}</td>
+                          <td className="px-6 py-4 text-slate-600 dark:text-white/70">{m.machine_id || m.id}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-0.5 rounded font-bold border text-[10px] uppercase ${badgeColor}`}>
                               {m.status || "Active"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-white/50">{m.type || "System Unit"}</td>
+                          <td className="px-6 py-4 text-slate-600 dark:text-white/50">{m.type || "System Unit"}</td>
                           <td className="px-6 py-4 text-right">
                             <button
                               onClick={() => setActiveTab("diagnostics")}
-                              className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-500/30 text-white rounded transition text-[10px]"
+                              className="px-2.5 py-1 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 hover:border-cyan-500/30 text-slate-900 dark:text-white rounded transition text-[10px]"
                             >
                               Diagnose
                             </button>
@@ -648,10 +751,10 @@ export default function NextGenDashboard() {
           }, {});
 
           const TELEMETRY = [
-            { label: "Nitrogen",  value: liveTelem.nitrogen.toFixed(1),            unit: "%",   color: "text-cyan-400",    warn: liveTelem.nitrogen < 97.8 },
-            { label: "Core Temp", value: liveTelem.coreTemp.toFixed(2),            unit: "K",   color: liveTelem.coreTemp > 4.35 ? "text-amber-400" : "text-emerald-400", warn: liveTelem.coreTemp > 4.35 },
-            { label: "Pressure",  value: liveTelem.pressure.toFixed(1),            unit: "psi", color: "text-amber-400",   warn: liveTelem.pressure > 43.5 },
-            { label: "Sys Load",  value: Math.round(liveTelem.sysLoad).toString(), unit: "%",   color: liveTelem.sysLoad > 80 ? "text-rose-400" : "text-white", warn: liveTelem.sysLoad > 80 },
+            { label: "Nitrogen", value: liveTelem.nitrogen.toFixed(1), unit: "%", color: "text-cyan-400", warn: liveTelem.nitrogen < 97.8 },
+            { label: "Core Temp", value: liveTelem.coreTemp.toFixed(2), unit: "K", color: liveTelem.coreTemp > 4.35 ? "text-amber-400" : "text-emerald-400", warn: liveTelem.coreTemp > 4.35 },
+            { label: "Pressure", value: liveTelem.pressure.toFixed(1), unit: "psi", color: "text-amber-400", warn: liveTelem.pressure > 43.5 },
+            { label: "Sys Load", value: Math.round(liveTelem.sysLoad).toString(), unit: "%", color: liveTelem.sysLoad > 80 ? "text-rose-400" : "text-slate-900 dark:text-white", warn: liveTelem.sysLoad > 80 },
           ];
 
           const SYS_LOGS = [
@@ -667,10 +770,10 @@ export default function NextGenDashboard() {
               {/* Top bar */}
               <div className="shrink-0 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold font-mono text-white uppercase">
+                  <h2 className="text-xl font-bold font-mono text-slate-900 dark:text-white uppercase">
                     {twinProduct?.product_name ?? "Digital Twin"}
                   </h2>
-                  <p className="text-xs font-mono text-white/40 mt-0.5">
+                  <p className="text-xs font-mono text-slate-600 dark:text-white/40 mt-0.5">
                     {twinProduct ? `ID: ${twinProduct.product_id}` : "Select a product to load 3D model"}
                   </p>
                 </div>
@@ -679,7 +782,7 @@ export default function NextGenDashboard() {
                     <select
                       value={twinProductId}
                       onChange={e => setTwinProductId(e.target.value)}
-                      className="bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-3 py-1.5 rounded focus:outline-none focus:border-violet-500/40"
+                      className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-mono px-3 py-1.5 rounded focus:outline-none focus:border-violet-500/40"
                     >
                       {productsList.map(p => (
                         <option key={p.id} value={p.id}>{p.product_name}</option>
@@ -694,9 +797,9 @@ export default function NextGenDashboard() {
               </div>
 
               {/* Main viewer with overlays */}
-              <div className="flex-1 relative rounded-xl overflow-hidden min-h-0 border border-white/5">
+              <div className="flex-1 relative rounded-xl overflow-hidden min-h-0 border border-slate-200 dark:border-white/5">
                 {/* 3D Viewer background */}
-                <div className="absolute inset-0 bg-[#06070a]">
+                <div className="absolute inset-0 bg-slate-50 dark:bg-[#06070a]">
                   {twinLoadingTree ? (
                     <div className="h-full flex items-center justify-center">
                       <div className="w-8 h-8 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
@@ -705,18 +808,18 @@ export default function NextGenDashboard() {
                     <GlbViewerDark src={twinGlbUrl} hotspots={[]} canGoBack={false} onBack={() => { }} />
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center gap-3">
-                      <Activity className="h-16 w-16 text-white/10" />
-                      <p className="text-sm font-mono text-white/25">No 3D model for this product</p>
-                      <p className="text-[10px] font-mono text-white/15">Upload a GLB file via admin portal</p>
+                      <Activity className="h-16 w-16 text-slate-600 dark:text-white/10" />
+                      <p className="text-sm font-mono text-slate-600 dark:text-white/25">No 3D model for this product</p>
+                      <p className="text-[10px] font-mono text-slate-600 dark:text-white/15">Upload a GLB file via admin portal</p>
                     </div>
                   )}
                 </div>
 
                 {/* Assembly Diagnostics overlay — bottom-left */}
-                <div className="absolute bottom-4 left-4 bg-[#06070a]/88 backdrop-blur-md border border-white/10 rounded-xl p-4 w-[220px] pointer-events-none">
-                  <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mb-2.5">Assembly Diagnostics</p>
+                <div className="absolute bottom-4 left-4 bg-slate-50 dark:bg-[#06070a]/88 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl p-4 w-[220px] pointer-events-none">
+                  <p className="text-[9px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest mb-2.5">Assembly Diagnostics</p>
                   {twinTree.length === 0 ? (
-                    <p className="text-[10px] font-mono text-white/20">No data loaded</p>
+                    <p className="text-[10px] font-mono text-slate-600 dark:text-white/20">No data loaded</p>
                   ) : (
                     <>
                       {Object.entries(typeCounts).map(([type, count]) => {
@@ -724,30 +827,30 @@ export default function NextGenDashboard() {
                         return (
                           <div key={type} className="flex justify-between items-center text-[10px] font-mono mb-1.5">
                             <span className={clr}>{type}</span>
-                            <span className="text-white font-bold">{count}</span>
+                            <span className="text-slate-900 dark:text-white font-bold">{count}</span>
                           </div>
                         );
                       })}
-                      <div className="mt-2 border-t border-white/10 pt-2 flex justify-between text-[10px] font-mono">
-                        <span className="text-white/40">Total Nodes</span>
-                        <span className="text-white font-bold">{twinTree.length}</span>
+                      <div className="mt-2 border-t border-slate-200 dark:border-white/10 pt-2 flex justify-between text-[10px] font-mono">
+                        <span className="text-slate-600 dark:text-white/40">Total Nodes</span>
+                        <span className="text-slate-900 dark:text-white font-bold">{twinTree.length}</span>
                       </div>
                     </>
                   )}
                 </div>
 
                 {/* Right sidebar */}
-                <div className="absolute top-0 right-0 bottom-0 w-[280px] bg-[#06070a]/90 backdrop-blur-md border-l border-white/8 flex flex-col overflow-hidden">
+                <div className="absolute top-0 right-0 bottom-0 w-[280px] bg-slate-50 dark:bg-[#06070a]/90 backdrop-blur-md border-l border-slate-200 dark:border-white/8 flex flex-col overflow-hidden">
                   {/* Live Telemetry */}
-                  <div className="p-4 border-b border-white/8 shrink-0">
-                    <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mb-3">Live Telemetry</p>
+                  <div className="p-4 border-b border-slate-200 dark:border-white/8 shrink-0">
+                    <p className="text-[9px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest mb-3">Live Telemetry</p>
                     <div className="grid grid-cols-2 gap-2">
                       {TELEMETRY.map(card => (
-                        <div key={card.label} className={`bg-white/5 border rounded-lg p-3 ${card.warn ? "border-amber-500/20" : "border-white/5"}`}>
-                          <p className="text-[8px] font-mono text-white/35 mb-1 truncate">{card.label}</p>
+                        <div key={card.label} className={`bg-slate-100 dark:bg-white/5 border rounded-lg p-3 ${card.warn ? "border-amber-500/20" : "border-slate-200 dark:border-white/5"}`}>
+                          <p className="text-[8px] font-mono text-slate-600 dark:text-white/35 mb-1 truncate">{card.label}</p>
                           <p className={`text-base font-bold font-mono leading-none ${card.color}`}>
                             {card.value}
-                            <span className="text-[9px] text-white/30 ml-0.5">{card.unit}</span>
+                            <span className="text-[9px] text-slate-600 dark:text-white/30 ml-0.5">{card.unit}</span>
                           </p>
                           {card.warn && <p className="text-[8px] font-mono text-amber-500 mt-1">▲ Warning</p>}
                         </div>
@@ -757,26 +860,26 @@ export default function NextGenDashboard() {
 
                   {/* System Logs */}
                   <div className="flex-1 overflow-y-auto p-4">
-                    <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mb-3">System Logs</p>
+                    <p className="text-[9px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest mb-3">System Logs</p>
                     {SYS_LOGS.map((log, i) => (
                       <div key={i} className="flex gap-2 mb-3">
-                        <span className="text-[9px] font-mono text-white/25 shrink-0 mt-0.5 w-10">{log.time}</span>
+                        <span className="text-[9px] font-mono text-slate-600 dark:text-white/25 shrink-0 mt-0.5 w-10">{log.time}</span>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${log.level === "critical" ? "bg-rose-500" :
                           log.level === "warning" ? "bg-amber-500" : "bg-emerald-500"
                           }`} />
-                        <p className="text-[10px] font-mono text-white/55 leading-snug">{log.msg}</p>
+                        <p className="text-[10px] font-mono text-slate-600 dark:text-white/55 leading-snug">{log.msg}</p>
                       </div>
                     ))}
                   </div>
 
                   {/* Quick links */}
-                  <div className="p-3 border-t border-white/8 flex gap-2 shrink-0">
+                  <div className="p-3 border-t border-slate-200 dark:border-white/8 flex gap-2 shrink-0">
                     <button onClick={() => router.push("/troubleshooting")}
                       className="flex-1 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[10px] font-mono uppercase rounded hover:bg-violet-600/30 transition">
                       Troubleshoot
                     </button>
                     <button onClick={() => goToTickets()}
-                      className="flex-1 py-2 bg-white/5 border border-white/8 text-white/50 text-[10px] font-mono uppercase rounded hover:bg-white/10 transition">
+                      className="flex-1 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 text-slate-600 dark:text-white/50 text-[10px] font-mono uppercase rounded hover:bg-slate-100 dark:bg-white/10 transition">
                       Tickets
                     </button>
                   </div>
@@ -786,13 +889,13 @@ export default function NextGenDashboard() {
               {/* Bottom: Quick-Order strip */}
               {productsList.length > 0 && (
                 <div className="shrink-0">
-                  <p className="text-[9px] font-mono text-white/30 uppercase tracking-widest mb-2">Inventory Quick-Order</p>
+                  <p className="text-[9px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest mb-2">Inventory Quick-Order</p>
                   <div className="flex gap-3 overflow-x-auto pb-1">
                     {productsList.map((p, i) => {
                       const inStock = i % 3 !== 2;
                       return (
-                        <div key={p.id} className="shrink-0 bg-[#0c0e16] border border-white/5 rounded-lg p-3 w-[170px] hover:border-white/10 transition">
-                          <p className="text-[10px] font-mono text-white/60 truncate mb-0.5">{p.product_name}</p>
+                        <div key={p.id} className="shrink-0 bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-lg p-3 w-[170px] hover:border-slate-200 dark:border-white/10 transition">
+                          <p className="text-[10px] font-mono text-slate-600 dark:text-white/60 truncate mb-0.5">{p.product_name}</p>
                           <code className="text-[9px] font-mono text-violet-400">{p.product_id}</code>
                           <div className="flex items-center justify-between mt-2">
                             <span className={`text-[8px] font-mono ${inStock ? "text-emerald-400" : "text-amber-400"}`}>
@@ -824,12 +927,12 @@ export default function NextGenDashboard() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 bg-rose-500/20 text-rose-500 border border-rose-500/30 text-[9px] font-mono rounded font-bold uppercase tracking-widest">Critical Fault</span>
-                    <span className="text-xs font-mono text-white/50">ERR-9402-B</span>
+                    <span className="text-xs font-mono text-slate-600 dark:text-white/50">ERR-9402-B</span>
                   </div>
-                  <h2 className="text-2xl font-bold tracking-tight font-mono text-white mt-1">
+                  <h2 className="text-2xl font-bold tracking-tight font-mono text-slate-900 dark:text-white mt-1">
                     {rawTickets.find(t => t.status === "OPEN" || t.status === "IN_PROGRESS")?.title || (rawMachines[0]?.name ? `${rawMachines[0].name} — Active Fault` : "System Fault Detected")}
                   </h2>
-                  <p className="text-xs text-white/60 font-mono mt-2 max-w-3xl">
+                  <p className="text-xs text-slate-600 dark:text-white/60 font-mono mt-2 max-w-3xl">
                     {rawTickets.find(t => t.status === "OPEN" || t.status === "IN_PROGRESS")?.description || "Main actuator assembly delta-P dropped below minimum threshold during high-torque operation phase. Immediate inspection required."}
                   </p>
                 </div>
@@ -843,7 +946,7 @@ export default function NextGenDashboard() {
                       setNewTicketPriority("CRITICAL");
                       setActiveTab("support");
                     }}
-                    className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-white text-xs font-mono uppercase rounded transition font-bold"
+                    className="px-3.5 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 hover:border-slate-200 dark:border-white/20 text-slate-900 dark:text-white text-xs font-mono uppercase rounded transition font-bold"
                   >
                     Create Ticket
                   </button>
@@ -851,8 +954,8 @@ export default function NextGenDashboard() {
                   <button
                     onClick={() => setDiagnosticRunning(!diagnosticRunning)}
                     className={`px-3.5 py-2 text-xs font-mono uppercase rounded font-bold transition flex items-center gap-1.5 ${diagnosticRunning
-                      ? "bg-rose-500 text-white shadow-[0_0_15px_#ef444433]"
-                      : "bg-blue-600 text-white hover:bg-blue-700 shadow-[0_0_12px_#2563eb22]"
+                      ? "bg-rose-500 text-slate-900 dark:text-white shadow-[0_0_15px_#ef444433]"
+                      : "bg-blue-600 text-slate-900 dark:text-white hover:bg-blue-700 shadow-[0_0_12px_#2563eb22]"
                       }`}
                   >
                     {diagnosticRunning ? (
@@ -871,8 +974,8 @@ export default function NextGenDashboard() {
               </div>
 
               {/* Fault Progression Map timeline */}
-              <div className="mt-8 pt-6 border-t border-white/5">
-                <h3 className="text-2xs font-mono text-white/30 uppercase tracking-widest mb-4">Fault Progression Map</h3>
+              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5">
+                <h3 className="text-2xs font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest mb-4">Fault Progression Map</h3>
                 <div className="flex flex-col sm:flex-row justify-between gap-6 sm:gap-2">
 
                   <div className="flex items-center gap-3">
@@ -880,8 +983,8 @@ export default function NextGenDashboard() {
                       ✓
                     </div>
                     <div>
-                      <span className="block text-[8px] font-mono text-white/40">14:02:00</span>
-                      <span className="block text-xs font-mono text-white/70">Normal Operation</span>
+                      <span className="block text-[8px] font-mono text-slate-600 dark:text-white/40">14:02:00</span>
+                      <span className="block text-xs font-mono text-slate-600 dark:text-white/70">Normal Operation</span>
                     </div>
                   </div>
 
@@ -890,8 +993,8 @@ export default function NextGenDashboard() {
                       ✓
                     </div>
                     <div>
-                      <span className="block text-[8px] font-mono text-white/40">14:15:22</span>
-                      <span className="block text-xs font-mono text-white/70">Temp Anomaly</span>
+                      <span className="block text-[8px] font-mono text-slate-600 dark:text-white/40">14:15:22</span>
+                      <span className="block text-xs font-mono text-slate-600 dark:text-white/70">Temp Anomaly</span>
                     </div>
                   </div>
 
@@ -900,8 +1003,8 @@ export default function NextGenDashboard() {
                       ✓
                     </div>
                     <div>
-                      <span className="block text-[8px] font-mono text-white/40">14:18:45</span>
-                      <span className="block text-xs font-mono text-white/70">Vibration Spike</span>
+                      <span className="block text-[8px] font-mono text-slate-600 dark:text-white/40">14:18:45</span>
+                      <span className="block text-xs font-mono text-slate-600 dark:text-white/70">Vibration Spike</span>
                     </div>
                   </div>
 
@@ -910,18 +1013,18 @@ export default function NextGenDashboard() {
                       !
                     </div>
                     <div>
-                      <span className="block text-[8px] font-mono text-white/40">14:22:10</span>
+                      <span className="block text-[8px] font-mono text-slate-600 dark:text-white/40">14:22:10</span>
                       <span className="block text-xs font-mono text-rose-400 font-bold">Pressure Failure</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 opacity-40">
-                    <div className="h-6 w-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-mono text-[10px] text-white/40">
+                    <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center font-mono text-[10px] text-slate-600 dark:text-white/40">
                       •
                     </div>
                     <div>
-                      <span className="block text-[8px] font-mono text-white/40">Pending</span>
-                      <span className="block text-xs font-mono text-white/70">System Halt</span>
+                      <span className="block text-[8px] font-mono text-slate-600 dark:text-white/40">Pending</span>
+                      <span className="block text-xs font-mono text-slate-600 dark:text-white/70">System Halt</span>
                     </div>
                   </div>
 
@@ -935,8 +1038,8 @@ export default function NextGenDashboard() {
               {/* Left Columns: Viewport + Isolation procedure steps */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Viewport */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg">
-                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block mb-4">Main Actuator Assembly Viewport</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg">
+                  <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block mb-4">Main Actuator Assembly Viewport</span>
                   <div className="h-[250px]">
                     <Cyber3DViewer
                       mode="diagnostics"
@@ -946,8 +1049,8 @@ export default function NextGenDashboard() {
                 </div>
 
                 {/* Guided Isolation Steps */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-5">
-                  <span className="text-xs font-mono text-white/40 uppercase tracking-widest block border-b border-white/5 pb-2">Guided Isolation Procedure</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-5">
+                  <span className="text-xs font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block border-b border-slate-200 dark:border-white/5 pb-2">Guided Isolation Procedure</span>
 
                   <div className="space-y-4">
                     {/* Step 1: Checked */}
@@ -956,20 +1059,20 @@ export default function NextGenDashboard() {
                         ✓
                       </div>
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white uppercase">Step 1: Isolate Primary Valve</span>
-                        <span className="block text-[10px] font-mono text-white/50">Commanded valve V-102 to CLOSED state via telemetry override.</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">Step 1: Isolate Primary Valve</span>
+                        <span className="block text-[10px] font-mono text-slate-600 dark:text-white/50">Commanded valve V-102 to CLOSED state via telemetry override.</span>
                       </div>
                     </div>
 
                     {/* Step 2: Active */}
                     <div className="flex items-start gap-4 p-4 bg-blue-950/20 border border-blue-500/30 rounded">
-                      <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white font-bold shrink-0 mt-0.5 shadow-[0_0_10px_#2563eb]">
+                      <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-slate-900 dark:text-white font-bold shrink-0 mt-0.5 shadow-[0_0_10px_#2563eb]">
                         2
                       </div>
                       <div className="flex-1 space-y-3">
                         <div>
-                          <span className="block text-xs font-mono font-bold text-white uppercase">Step 2: Inspect Seal Integrity on Flange B</span>
-                          <span className="block text-[10px] font-mono text-white/70">
+                          <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">Step 2: Inspect Seal Integrity on Flange B</span>
+                          <span className="block text-[10px] font-mono text-slate-600 dark:text-white/70">
                             Visual inspection required. Look for hydraulic fluid pooling near the lower gasket.
                           </span>
                         </div>
@@ -981,7 +1084,7 @@ export default function NextGenDashboard() {
                               setDiagnosticStep(3);
                               alert("Action logged: Seal confirmed intact. Logging telemetry response...");
                             }}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-mono font-semibold rounded transition uppercase"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-900 dark:text-white text-[10px] font-mono font-semibold rounded transition uppercase"
                           >
                             Confirm Seal Intact
                           </button>
@@ -1000,12 +1103,12 @@ export default function NextGenDashboard() {
 
                     {/* Step 3: Pending */}
                     <div className="flex items-start gap-4 opacity-40">
-                      <div className="h-5 w-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] text-white/40 shrink-0 mt-0.5">
+                      <div className="h-5 w-5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-[10px] text-slate-600 dark:text-white/40 shrink-0 mt-0.5">
                         3
                       </div>
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white uppercase">Step 3: Pressure Test Secondary Loop</span>
-                        <span className="block text-[10px] font-mono text-white/50">Dependent on previous step completion.</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">Step 3: Pressure Test Secondary Loop</span>
+                        <span className="block text-[10px] font-mono text-slate-600 dark:text-white/50">Dependent on previous step completion.</span>
                       </div>
                     </div>
 
@@ -1016,19 +1119,19 @@ export default function NextGenDashboard() {
               {/* Right columns: telemetry charts + AI Pattern match suggestions */}
               <div className="space-y-6">
                 {/* Telemetry charts */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Telemetry Context</span>
-                    <span className="text-[8px] font-mono text-white/30 uppercase">T- 2m window</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/5 pb-2">
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Telemetry Context</span>
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase">T- 2m window</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-[8px] font-mono text-white/30 uppercase block">Pressure Delta</span>
+                      <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Pressure Delta</span>
                       <span className="text-sm font-bold font-mono text-rose-400 text-glow-rose">-42.5 psi</span>
                     </div>
                     <div>
-                      <span className="text-[8px] font-mono text-white/30 uppercase block">Flow Rate</span>
+                      <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Flow Rate</span>
                       <span className="text-sm font-bold font-mono text-cyan-400 text-glow-cyan">112.4 L/m</span>
                     </div>
                   </div>
@@ -1045,42 +1148,42 @@ export default function NextGenDashboard() {
                 </div>
 
                 {/* AI Pattern analysis */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4">
-                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block border-b border-white/5 pb-2">Pattern Analysis</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4">
+                  <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block border-b border-slate-200 dark:border-white/5 pb-2">Pattern Analysis</span>
 
-                  <p className="text-[10px] font-mono text-white/50">
+                  <p className="text-[10px] font-mono text-slate-600 dark:text-white/50">
                     Based on 4,203 similar historical incidents across the fleet, AI suggests the following probable causes:
                   </p>
 
                   <div className="space-y-2 pt-2">
-                    <div className="p-2.5 rounded bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div className="p-2.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between">
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white">Actuator Piston Seal Failure</span>
-                        <span className="block text-[9px] font-mono text-white/40">Vibration signature matches seal blow-out.</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white">Actuator Piston Seal Failure</span>
+                        <span className="block text-[9px] font-mono text-slate-600 dark:text-white/40">Vibration signature matches seal blow-out.</span>
                       </div>
                       <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[9px]">87% Match</span>
                     </div>
 
-                    <div className="p-2.5 rounded bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div className="p-2.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between">
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white">Relief Valve Stuck Open</span>
-                        <span className="block text-[9px] font-mono text-white/40">Could explain pressure drops in loop.</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white">Relief Valve Stuck Open</span>
+                        <span className="block text-[9px] font-mono text-slate-600 dark:text-white/40">Could explain pressure drops in loop.</span>
                       </div>
-                      <span className="px-1.5 py-0.5 rounded bg-white/5 text-white/50 border border-white/10 font-bold text-[9px]">12% Match</span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border border-slate-200 dark:border-white/10 font-bold text-[9px]">12% Match</span>
                     </div>
 
-                    <div className="p-2.5 rounded bg-white/5 border border-white/5 flex items-center justify-between opacity-60">
+                    <div className="p-2.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between opacity-60">
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white">Supply Line Rupture</span>
-                        <span className="block text-[9px] font-mono text-white/40">Unlikely given upstream telemetry.</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white">Supply Line Rupture</span>
+                        <span className="block text-[9px] font-mono text-slate-600 dark:text-white/40">Unlikely given upstream telemetry.</span>
                       </div>
-                      <span className="text-white/40 text-[9px]">&lt; 1% Match</span>
+                      <span className="text-slate-600 dark:text-white/40 text-[9px]">&lt; 1% Match</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => alert("Searching operational FAQ archives for Actuator Piston Seals...")}
-                    className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[10px] font-mono uppercase tracking-widest rounded transition"
+                    className="w-full py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-slate-900 dark:text-white text-[10px] font-mono uppercase tracking-widest rounded transition"
                   >
                     Query Full Knowledge Base
                   </button>
@@ -1137,8 +1240,8 @@ export default function NextGenDashboard() {
               {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold font-mono text-white">Component Catalog</h2>
-                  <p className="text-xs font-mono text-white/40 mt-1 uppercase">Parts &amp; Assemblies — Browse and order replacement components</p>
+                  <h2 className="text-2xl font-bold font-mono text-slate-900 dark:text-white">Component Catalog</h2>
+                  <p className="text-xs font-mono text-slate-600 dark:text-white/40 mt-1 uppercase">Parts &amp; Assemblies — Browse and order replacement components</p>
                 </div>
                 <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono text-[9px] font-bold uppercase tracking-widest self-start sm:self-auto">
                   {catalogItems.length} Parts Available
@@ -1147,16 +1250,16 @@ export default function NextGenDashboard() {
 
               {/* Search bar */}
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 dark:text-white/20 pointer-events-none" />
                 <input
                   type="text"
                   value={invSearch}
                   onChange={e => setInvSearch(e.target.value)}
                   placeholder="Search by name or SKU…"
-                  className="w-full bg-[#0c0e16] border border-white/8 text-white font-mono text-sm pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:border-violet-500/40 placeholder:text-white/20"
+                  className="w-full bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/8 text-slate-900 dark:text-white font-mono text-sm pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:border-violet-500/40 placeholder:text-slate-600 dark:text-white/20"
                 />
                 {invSearch && (
-                  <button onClick={() => setInvSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition">
+                  <button onClick={() => setInvSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/70 transition">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -1169,8 +1272,8 @@ export default function NextGenDashboard() {
                     key={cat}
                     onClick={() => setInvCategory(cat)}
                     className={`px-4 py-1.5 rounded-full text-xs font-mono font-semibold border transition ${invCategory === cat
-                      ? "bg-violet-600 border-violet-500 text-white"
-                      : "bg-white/3 border-white/8 text-white/40 hover:text-white/70 hover:border-white/15"
+                      ? "bg-violet-600 border-violet-500 text-slate-900 dark:text-white"
+                      : "bg-slate-100 dark:bg-white/3 border-slate-200 dark:border-white/8 text-slate-600 dark:text-white/40 hover:text-slate-600 dark:text-white/70 hover:border-slate-200 dark:border-white/15"
                       }`}
                   >
                     {cat}
@@ -1181,49 +1284,49 @@ export default function NextGenDashboard() {
               {/* Product grid */}
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20">
-                  <Box className="w-10 h-10 text-white/10 mb-3" />
-                  <p className="text-sm font-mono text-white/25">No parts found</p>
+                  <Box className="w-10 h-10 text-slate-600 dark:text-white/10 mb-3" />
+                  <p className="text-sm font-mono text-slate-600 dark:text-white/25">No parts found</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filtered.map(item => {
                     const assemblyPath = getAssemblyPath(item.product_name);
                     return (
-                      <div key={item.id} className="bg-[#0c0e16] border border-white/5 rounded-xl p-5 flex flex-col gap-3 hover:border-white/10 transition group">
+                      <div key={item.id} className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl p-5 flex flex-col gap-3 hover:border-slate-200 dark:border-white/10 transition group">
                         {/* SKU + Category */}
                         <div className="flex items-center justify-between">
                           <code className="text-[9px] font-mono text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded">
                             {item.sku}
                           </code>
-                          <span className="text-[9px] font-mono text-white/30 bg-white/5 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          <span className="text-[9px] font-mono text-slate-600 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full uppercase tracking-wider">
                             {item.category}
                           </span>
                         </div>
 
                         {/* Name */}
                         <div>
-                          <h3 className="text-sm font-bold font-mono text-white group-hover:text-violet-100 transition leading-snug">
+                          <h3 className="text-sm font-bold font-mono text-slate-900 dark:text-white group-hover:text-violet-100 transition leading-snug">
                             {item.product_name}
                           </h3>
-                          <code className="text-[10px] font-mono text-white/30 mt-0.5 block">{item.product_id}</code>
+                          <code className="text-[10px] font-mono text-slate-600 dark:text-white/30 mt-0.5 block">{item.product_id}</code>
                         </div>
 
                         {/* Assembly connections (from tree) */}
                         {assemblyPath && assemblyPath.length > 0 && (
-                          <div className="bg-white/3 border border-white/5 rounded-lg p-2.5 space-y-1">
-                            <p className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-1.5">Assembly Path</p>
+                          <div className="bg-slate-100 dark:bg-white/3 border border-slate-200 dark:border-white/5 rounded-lg p-2.5 space-y-1">
+                            <p className="text-[8px] font-mono text-slate-600 dark:text-white/25 uppercase tracking-widest mb-1.5">Assembly Path</p>
                             {assemblyPath.map((step, si) => (
                               <div key={si} className="flex items-center gap-1.5">
-                                {si > 0 && <span className="text-white/15 text-[8px]">└</span>}
-                                <span className="text-[9px] font-mono text-white/50 truncate" style={{ paddingLeft: si > 0 ? `${si * 8}px` : 0 }}>{step}</span>
+                                {si > 0 && <span className="text-slate-600 dark:text-white/15 text-[8px]">└</span>}
+                                <span className="text-[9px] font-mono text-slate-600 dark:text-white/50 truncate" style={{ paddingLeft: si > 0 ? `${si * 8}px` : 0 }}>{step}</span>
                               </div>
                             ))}
                           </div>
                         )}
 
                         {/* Price + Stock */}
-                        <div className="flex items-center justify-between py-2 border-t border-b border-white/5">
-                          <span className="text-lg font-bold font-mono text-white">{item.price}</span>
+                        <div className="flex items-center justify-between py-2 border-t border-b border-slate-200 dark:border-white/5">
+                          <span className="text-lg font-bold font-mono text-slate-900 dark:text-white">{item.price}</span>
                           <div className="flex items-center gap-1.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${item.stock.dot}`} />
                             <span className={`text-[10px] font-mono ${item.stock.color}`}>{item.stock.label}</span>
@@ -1231,7 +1334,7 @@ export default function NextGenDashboard() {
                         </div>
 
                         {/* Lead time */}
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-white/35">
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-600 dark:text-white/35">
                           <Clock className="w-3 h-3" />
                           <span>Lead time: {item.stock.lead}</span>
                         </div>
@@ -1240,7 +1343,7 @@ export default function NextGenDashboard() {
                         <div className="flex gap-2 mt-auto">
                           <button
                             onClick={() => router.push("/troubleshooting")}
-                            className="flex-1 py-2 bg-white/5 border border-white/8 text-white/50 text-[10px] font-mono uppercase rounded-lg hover:bg-white/10 hover:text-white/80 transition"
+                            className="flex-1 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 text-slate-600 dark:text-white/50 text-[10px] font-mono uppercase rounded-lg hover:bg-slate-100 dark:bg-white/10 hover:text-slate-600 dark:text-white/80 transition"
                           >
                             Details
                           </button>
@@ -1248,8 +1351,8 @@ export default function NextGenDashboard() {
                             onClick={() => { setOrderPartName(item.product_name); setShowOrderSuccess(true); }}
                             disabled={item.stock.label === "Out of Stock"}
                             className={`flex-1 py-2 text-[10px] font-mono uppercase rounded-lg font-bold transition border ${item.stock.label === "Out of Stock"
-                              ? "bg-white/3 border-white/5 text-white/20 cursor-not-allowed"
-                              : "bg-violet-600 border-violet-500 text-white hover:bg-violet-500"
+                              ? "bg-slate-100 dark:bg-white/3 border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/20 cursor-not-allowed"
+                              : "bg-violet-600 border-violet-500 text-slate-900 dark:text-white hover:bg-violet-500"
                               }`}
                           >
                             Order
@@ -1270,20 +1373,20 @@ export default function NextGenDashboard() {
             {/* Header info */}
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-mono text-white uppercase">{rawMachines[0]?.name || "Primary System Unit"}</h2>
-                <span className="text-[10px] font-mono text-white/40 uppercase">ID: {rawMachines[0]?.machine_id || "#882-AX-99"}</span>
+                <h2 className="text-2xl font-bold tracking-tight font-mono text-slate-900 dark:text-white uppercase">{rawMachines[0]?.name || "Primary System Unit"}</h2>
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase">ID: {rawMachines[0]?.machine_id || "#882-AX-99"}</span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => alert("Isolating layers on turbine core layout...")}
-                  className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[10px] font-mono uppercase rounded transition"
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-slate-900 dark:text-white text-[10px] font-mono uppercase rounded transition"
                 >
                   Isolate Layers
                 </button>
                 <button
                   onClick={() => setSelectedHotspot("")}
-                  className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[10px] font-mono uppercase rounded transition"
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-slate-900 dark:text-white text-[10px] font-mono uppercase rounded transition"
                 >
                   Reset View
                 </button>
@@ -1294,9 +1397,9 @@ export default function NextGenDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Left panel: big 3D model viewport */}
-              <div className="lg:col-span-2 bg-[#0c0e16] border border-white/5 p-6 rounded-lg flex flex-col justify-between">
+              <div className="lg:col-span-2 bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-mono text-white/40 uppercase tracking-wider">3D Digital Twin Viewer</span>
+                  <span className="text-xs font-mono text-slate-600 dark:text-white/40 uppercase tracking-wider">3D Digital Twin Viewer</span>
                   <span className="text-[9px] font-mono text-[#06b6d4]/80 uppercase">Click hotspot to open child design</span>
                 </div>
 
@@ -1311,19 +1414,19 @@ export default function NextGenDashboard() {
                 </div>
 
                 {/* Turbine stats footer */}
-                <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-3 gap-4 text-center">
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <span className="text-[8px] font-mono text-white/30 uppercase block">Status</span>
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Status</span>
                     <span className="text-xs font-bold font-mono text-emerald-400 flex items-center justify-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online
                     </span>
                   </div>
                   <div>
-                    <span className="text-[8px] font-mono text-white/30 uppercase block">Uptime</span>
-                    <span className="text-xs font-bold font-mono text-white">45d 12h 30m</span>
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Uptime</span>
+                    <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">45d 12h 30m</span>
                   </div>
                   <div>
-                    <span className="text-[8px] font-mono text-white/30 uppercase block">Efficiency</span>
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Efficiency</span>
                     <span className="text-xs font-bold font-mono text-emerald-400">94.2%</span>
                   </div>
                 </div>
@@ -1333,14 +1436,14 @@ export default function NextGenDashboard() {
               <div className="space-y-6">
 
                 {/* System Health Score */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg flex items-center justify-between">
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg flex items-center justify-between">
                   <div>
-                    <span className="text-[9px] font-mono text-white/30 uppercase tracking-wider block">System Health</span>
+                    <span className="text-[9px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-wider block">System Health</span>
                     <div className="flex gap-2 items-center mt-2">
-                      <span className="text-3xl font-bold font-mono text-white">92</span>
+                      <span className="text-3xl font-bold font-mono text-slate-900 dark:text-white">92</span>
                       <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 px-1.5 py-0.5 rounded">Score</span>
                     </div>
-                    <div className="space-y-0.5 mt-2 text-[9px] font-mono text-white/55">
+                    <div className="space-y-0.5 mt-2 text-[9px] font-mono text-slate-600 dark:text-white/55">
                       <div>Vibration: <span className="text-emerald-400 font-semibold">Normal</span></div>
                       <div>Thermal Load: <span className="text-amber-400 font-semibold">Elevated</span></div>
                     </div>
@@ -1351,8 +1454,8 @@ export default function NextGenDashboard() {
                 </div>
 
                 {/* System Load graph */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg">
-                  <span className="text-[9px] font-mono text-white/30 uppercase tracking-wider block mb-4">System Load</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg">
+                  <span className="text-[9px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-wider block mb-4">System Load</span>
                   <div className="h-[100px]">
                     <ResponsiveContainer width="100%" height={100}>
                       <AreaChart data={LOAD_DATA}>
@@ -1370,14 +1473,14 @@ export default function NextGenDashboard() {
 
                 {/* Telemetry levels */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#0c0e16] border border-white/5 p-4 rounded-lg">
-                    <span className="text-[8px] font-mono text-white/30 uppercase block">Nitrogen Level</span>
-                    <span className="text-sm font-bold font-mono text-white mt-1 block">4.2 bar</span>
+                  <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-4 rounded-lg">
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Nitrogen Level</span>
+                    <span className="text-sm font-bold font-mono text-slate-900 dark:text-white mt-1 block">4.2 bar</span>
                     <span className="text-[9px] font-mono text-emerald-400 mt-1 block font-semibold">Stable</span>
                   </div>
 
-                  <div className="bg-[#0c0e16] border border-white/5 p-4 rounded-lg border-amber-500/20">
-                    <span className="text-[8px] font-mono text-white/30 uppercase block">Core Temp</span>
+                  <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-4 rounded-lg border-amber-500/20">
+                    <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase block">Core Temp</span>
                     <span className="text-sm font-bold font-mono text-amber-500 mt-1 block text-glow-amber">112 °C</span>
                     <span className="text-[9px] font-mono text-amber-500 mt-1 block font-semibold flex items-center gap-0.5">
                       <AlertTriangle className="h-3 w-3" /> Warning
@@ -1386,9 +1489,9 @@ export default function NextGenDashboard() {
                 </div>
 
                 {/* Maintenance Logger list */}
-                <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Maintenance</span>
+                <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/5 pb-2">
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Maintenance</span>
                     <span className="text-[8px] font-mono text-cyan-400 hover:underline cursor-pointer uppercase">View Log</span>
                   </div>
 
@@ -1396,18 +1499,18 @@ export default function NextGenDashboard() {
                     <div className="flex gap-3">
                       <div className="h-5 w-5 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 text-[10px] shrink-0 mt-0.5 font-bold animate-pulse">•</div>
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white uppercase">Urgent Service Required</span>
-                        <span className="block text-[9px] font-mono text-white/50">Coolant system flushing</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">Urgent Service Required</span>
+                        <span className="block text-[9px] font-mono text-slate-600 dark:text-white/50">Coolant system flushing</span>
                         <span className="block text-[8px] font-mono text-rose-400/70 mt-0.5">Due in 2 days</span>
                       </div>
                     </div>
 
                     <div className="flex gap-3 opacity-60">
-                      <div className="h-5 w-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 text-[10px] shrink-0 mt-0.5 font-bold">✓</div>
+                      <div className="h-5 w-5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white/60 text-[10px] shrink-0 mt-0.5 font-bold">✓</div>
                       <div>
-                        <span className="block text-xs font-mono font-bold text-white uppercase">Filter Replacement</span>
-                        <span className="block text-[9px] font-mono text-white/50">Completed by Tech #42</span>
-                        <span className="block text-[8px] font-mono text-white/30 mt-0.5">12 Oct 2025</span>
+                        <span className="block text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">Filter Replacement</span>
+                        <span className="block text-[9px] font-mono text-slate-600 dark:text-white/50">Completed by Tech #42</span>
+                        <span className="block text-[8px] font-mono text-slate-600 dark:text-white/30 mt-0.5">12 Oct 2025</span>
                       </div>
                     </div>
                   </div>
@@ -1418,13 +1521,13 @@ export default function NextGenDashboard() {
             </div>
 
             {/* Recursive ViewRay Assembly Drawing & FAQ Tree Explorer */}
-            <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4 animate-fadeIn">
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold font-mono text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-bold font-mono text-slate-900 dark:text-white uppercase tracking-wider">
                     ViewRay Portal Assembly Tree
                   </h3>
-                  <span className="text-[9px] font-mono text-white/40 uppercase">
+                  <span className="text-[9px] font-mono text-slate-600 dark:text-white/40 uppercase">
                     Live BOM Skeleton (by-product) & Technical FAQ Sheets
                   </span>
                 </div>
@@ -1436,10 +1539,10 @@ export default function NextGenDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Tree Navigation Sidebar */}
-                <div className="bg-black/20 p-4 rounded border border-white/5 space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                  <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest block mb-2">BOM Node Hierarchy</span>
+                <div className="bg-black/20 p-4 rounded border border-slate-200 dark:border-white/5 space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
+                  <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest block mb-2">BOM Node Hierarchy</span>
                   {troubleshootingTree.length === 0 ? (
-                    <span className="text-xs text-white/45 font-mono italic">No assembly drawings loaded. Connect to NestJS.</span>
+                    <span className="text-xs text-slate-600 dark:text-white/45 font-mono italic">No assembly drawings loaded. Connect to NestJS.</span>
                   ) : (
                     troubleshootingTree.map((node) => {
                       const key = node.design_version_id || node.design_uuid;
@@ -1451,14 +1554,14 @@ export default function NextGenDashboard() {
                           onClick={() => setSelectedTreeNodeKey(key)}
                           className={`group flex items-center justify-between py-1.5 px-2 rounded cursor-pointer transition text-xs font-mono ${isSelected
                             ? "bg-[#06b6d4]/10 text-[#06b6d4] border-l-2 border-[#06b6d4] font-bold"
-                            : "text-white/60 hover:text-white hover:bg-white/5"
+                            : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-white/5"
                             }`}
                         >
                           <div className="flex items-center gap-1.5 truncate">
-                            <span className="text-[10px] text-white/30">L{node.level}</span>
+                            <span className="text-[10px] text-slate-600 dark:text-white/30">L{node.level}</span>
                             <span className="truncate">{node.design_name}</span>
                           </div>
-                          <span className="text-[8px] opacity-40 uppercase shrink-0 px-1 bg-white/5 rounded">
+                          <span className="text-[8px] opacity-40 uppercase shrink-0 px-1 bg-slate-100 dark:bg-white/5 rounded">
                             {node.design_type.replace("Assembly", "Asm")}
                           </span>
                         </div>
@@ -1475,7 +1578,7 @@ export default function NextGenDashboard() {
                     );
                     if (!selectedNode) {
                       return (
-                        <div className="h-full flex items-center justify-center bg-black/10 rounded border border-white/5 p-8 text-center text-xs font-mono text-white/30">
+                        <div className="h-full flex items-center justify-center bg-black/10 rounded border border-slate-200 dark:border-white/5 p-8 text-center text-xs font-mono text-slate-600 dark:text-white/30">
                           Select an assembly node on the left to view drawing drawings and technical manuals.
                         </div>
                       );
@@ -1484,10 +1587,10 @@ export default function NextGenDashboard() {
                     return (
                       <div className="space-y-4 animate-fadeIn">
                         {/* Node Header */}
-                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
                           <div>
-                            <h4 className="text-xs font-bold font-mono text-white uppercase">{selectedNode.design_name}</h4>
-                            <span className="text-[9px] font-mono text-white/40 block mt-0.5">
+                            <h4 className="text-xs font-bold font-mono text-slate-900 dark:text-white uppercase">{selectedNode.design_name}</h4>
+                            <span className="text-[9px] font-mono text-slate-600 dark:text-white/40 block mt-0.5">
                               Part ID: {selectedNode.design_id} | Version ID: {selectedNode.design_version || "v1.0"}
                             </span>
                           </div>
@@ -1500,9 +1603,9 @@ export default function NextGenDashboard() {
                           {/* Drawings & Technical Manuals */}
                           <div className="space-y-3">
                             <div>
-                              <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest block mb-1.5">Drawing Files</span>
+                              <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest block mb-1.5">Drawing Files</span>
                               {selectedNode.drawing_files.length === 0 ? (
-                                <span className="text-[10px] text-white/40 font-mono italic block">No engineering drawings attached.</span>
+                                <span className="text-[10px] text-slate-600 dark:text-white/40 font-mono italic block">No engineering drawings attached.</span>
                               ) : (
                                 <div className="space-y-1">
                                   {selectedNode.drawing_files.map((file) => (
@@ -1511,10 +1614,10 @@ export default function NextGenDashboard() {
                                       href={`http://localhost:7000${file.url}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="flex items-center justify-between p-1.5 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono text-cyan-400 hover:text-cyan-300 transition animate-fadeIn"
+                                      className="flex items-center justify-between p-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 rounded text-[10px] font-mono text-cyan-400 hover:text-cyan-300 transition animate-fadeIn"
                                     >
                                       <span className="truncate">📁 {file.file_name}</span>
-                                      <span className="text-[8px] text-white/40 shrink-0">{file.file_size || "1.2 MB"}</span>
+                                      <span className="text-[8px] text-slate-600 dark:text-white/40 shrink-0">{file.file_size || "1.2 MB"}</span>
                                     </a>
                                   ))}
                                 </div>
@@ -1522,9 +1625,9 @@ export default function NextGenDashboard() {
                             </div>
 
                             <div>
-                              <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest block mb-1.5">Knowledge Base Manuals</span>
+                              <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest block mb-1.5">Knowledge Base Manuals</span>
                               {selectedNode.kb_files.length === 0 ? (
-                                <span className="text-[10px] text-white/40 font-mono italic block">No manual guides attached.</span>
+                                <span className="text-[10px] text-slate-600 dark:text-white/40 font-mono italic block">No manual guides attached.</span>
                               ) : (
                                 <div className="space-y-1">
                                   {selectedNode.kb_files.map((file) => (
@@ -1533,10 +1636,10 @@ export default function NextGenDashboard() {
                                       href={`http://localhost:7000${file.url}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="flex items-center justify-between p-1.5 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono text-emerald-400 hover:text-emerald-300 transition animate-fadeIn"
+                                      className="flex items-center justify-between p-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:bg-white/10 rounded text-[10px] font-mono text-emerald-400 hover:text-emerald-300 transition animate-fadeIn"
                                     >
                                       <span className="truncate">📖 {file.title || file.file_name}</span>
-                                      <span className="text-[8px] text-white/40 shrink-0">{file.file_size || "2.1 MB"}</span>
+                                      <span className="text-[8px] text-slate-600 dark:text-white/40 shrink-0">{file.file_size || "2.1 MB"}</span>
                                     </a>
                                   ))}
                                 </div>
@@ -1546,15 +1649,15 @@ export default function NextGenDashboard() {
 
                           {/* FAQ Accordion List */}
                           <div>
-                            <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest block mb-1.5">Troubleshooting FAQ Sheet</span>
+                            <span className="text-[8px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest block mb-1.5">Troubleshooting FAQ Sheet</span>
                             {selectedNode.faq_items.length === 0 ? (
-                              <span className="text-[10px] text-white/40 font-mono italic block">No active FAQs registered for this component.</span>
+                              <span className="text-[10px] text-slate-600 dark:text-white/40 font-mono italic block">No active FAQs registered for this component.</span>
                             ) : (
                               <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar animate-fadeIn">
                                 {selectedNode.faq_items.map((item) => (
-                                  <div key={item.id} className="p-2 bg-white/5 rounded border border-white/5 space-y-1">
+                                  <div key={item.id} className="p-2 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/5 space-y-1">
                                     <span className="block text-[10px] font-bold font-mono text-amber-400 uppercase">Q: {item.question}</span>
-                                    <span className="block text-[9px] font-mono text-white/70 leading-relaxed">A: {item.answer}</span>
+                                    <span className="block text-[9px] font-mono text-slate-600 dark:text-white/70 leading-relaxed">A: {item.answer}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1575,8 +1678,8 @@ export default function NextGenDashboard() {
         {activeTab === "tickets" && (
           <div className="space-y-8 animate-fadeIn">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight font-mono text-white">Incident Dispatch & Tickets Queue</h2>
-              <p className="text-xs text-white/50 font-mono uppercase mt-1">Real-time support ticket operations and field engineer dispatches.</p>
+              <h2 className="text-2xl font-bold tracking-tight font-mono text-slate-900 dark:text-white">Incident Dispatch & Tickets Queue</h2>
+              <p className="text-xs text-slate-600 dark:text-white/50 font-mono uppercase mt-1">Real-time support ticket operations and field engineer dispatches.</p>
             </div>
 
             {/* Main Split: Ticket list + submit/detail panel */}
@@ -1584,8 +1687,8 @@ export default function NextGenDashboard() {
 
               {/* Tickets Queue List */}
               <div className="lg:col-span-2 space-y-4">
-                <div className="flex justify-between items-center bg-[#0c0e16] border border-white/5 p-4 rounded-lg">
-                  <span className="text-xs font-mono text-white/50 uppercase">Active Support Incidents ({tickets.length})</span>
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-4 rounded-lg">
+                  <span className="text-xs font-mono text-slate-600 dark:text-white/50 uppercase">Active Support Incidents ({tickets.length})</span>
                   <span className="text-2xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded uppercase">Connected to Backend</span>
                 </div>
 
@@ -1593,13 +1696,13 @@ export default function NextGenDashboard() {
                   {tickets.map((t) => (
                     <div
                       key={t.id}
-                      className={`bg-[#0c0e16] border p-6 rounded-lg space-y-4 hover:border-blue-500/30 transition duration-300 ${t.priority === "CRITICAL" ? "border-rose-500/20 bg-rose-950/[0.03]" : "border-white/5"
+                      className={`bg-slate-50 dark:bg-[#0c0e16] border p-6 rounded-lg space-y-4 hover:border-blue-500/30 transition duration-300 ${t.priority === "CRITICAL" ? "border-rose-500/20 bg-rose-950/[0.03]" : "border-slate-200 dark:border-white/5"
                         }`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-white uppercase">{t.ticket_id}</span>
+                            <span className="font-mono text-xs font-bold text-slate-900 dark:text-white uppercase">{t.ticket_id}</span>
                             <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-widest ${t.priority === "CRITICAL"
                               ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                               : t.priority === "HIGH"
@@ -1617,29 +1720,29 @@ export default function NextGenDashboard() {
                               {t.status}
                             </span>
                           </div>
-                          <h3 className="text-sm font-bold font-mono text-white uppercase mt-2">{t.title}</h3>
+                          <h3 className="text-sm font-bold font-mono text-slate-900 dark:text-white uppercase mt-2">{t.title}</h3>
                         </div>
-                        <span className="text-[10px] font-mono text-white/30">
+                        <span className="text-[10px] font-mono text-slate-600 dark:text-white/30">
                           {new Date(t.created_at).toLocaleDateString()}
                         </span>
                       </div>
 
-                      <p className="text-xs font-mono text-white/60 leading-relaxed">
+                      <p className="text-xs font-mono text-slate-600 dark:text-white/60 leading-relaxed">
                         {t.description}
                       </p>
 
-                      <div className="pt-4 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
-                        <div className="flex items-center gap-1 text-white/40">
+                      <div className="pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] font-mono">
+                        <div className="flex items-center gap-1 text-slate-600 dark:text-white/40">
                           <Clock className="h-3.5 w-3.5" />
                           <span>Linked Unit:</span>
-                          <span className="text-white font-bold uppercase">{t.machine_name || "General Core System"}</span>
+                          <span className="text-slate-900 dark:text-white font-bold uppercase">{t.machine_name || "General Core System"}</span>
                         </div>
 
                         {t.assigned_user ? (
                           <div className="flex items-center gap-1.5 text-cyan-400">
                             <UserCheck className="h-3.5 w-3.5" />
                             <span>Tech Assigned:</span>
-                            <span className="font-bold text-white uppercase">
+                            <span className="font-bold text-slate-900 dark:text-white uppercase">
                               {t.assigned_user.firstName} {t.assigned_user.lastName}
                             </span>
                           </div>
@@ -1657,12 +1760,12 @@ export default function NextGenDashboard() {
                                 }
                               } : item));
                             }}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-[9px] uppercase tracking-wider transition"
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-slate-900 dark:text-white rounded font-bold text-[9px] uppercase tracking-wider transition"
                           >
                             Dispatch Tech
                           </button>
                         ) : (
-                          <span className="text-[9px] font-mono text-white/30 uppercase">Unassigned</span>
+                          <span className="text-[9px] font-mono text-slate-600 dark:text-white/30 uppercase">Unassigned</span>
                         )}
                       </div>
                     </div>
@@ -1671,43 +1774,43 @@ export default function NextGenDashboard() {
               </div>
 
               {/* Submit New Ticket Panel */}
-              <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg h-fit space-y-6">
-                <div className="border-b border-white/5 pb-2">
-                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest block">Operational Dispatch Desk</span>
-                  <h3 className="text-base font-bold font-mono text-white mt-1">Log Support Ticket</h3>
+              <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg h-fit space-y-6">
+                <div className="border-b border-slate-200 dark:border-white/5 pb-2">
+                  <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Operational Dispatch Desk</span>
+                  <h3 className="text-base font-bold font-mono text-slate-900 dark:text-white mt-1">Log Support Ticket</h3>
                 </div>
 
                 <form onSubmit={handleCreateTicket} className="space-y-4 font-mono text-xs">
                   <div className="space-y-1">
-                    <label className="text-white/40 uppercase block text-[10px]">Incident Title</label>
+                    <label className="text-slate-600 dark:text-white/40 uppercase block text-[10px]">Incident Title</label>
                     <input
                       type="text"
                       value={newTicketTitle}
                       onChange={(e) => setNewTicketTitle(e.target.value)}
                       placeholder="e.g. Hydraulic Actuator Fluid Leak"
-                      className="w-full bg-[#07090e] border border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-white placeholder-white/20 focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#07090e] border border-slate-200 dark:border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-slate-900 dark:text-white placeholder-white/20 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-white/40 uppercase block text-[10px]">Description & Diagnostics</label>
+                    <label className="text-slate-600 dark:text-white/40 uppercase block text-[10px]">Description & Diagnostics</label>
                     <textarea
                       rows={4}
                       value={newTicketDesc}
                       onChange={(e) => setNewTicketDesc(e.target.value)}
                       placeholder="Enter full sensor thresholds, alarms and diagnostic codes..."
-                      className="w-full bg-[#07090e] border border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-white placeholder-white/20 focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#07090e] border border-slate-200 dark:border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-slate-900 dark:text-white placeholder-white/20 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-white/40 uppercase block text-[10px]">Severity Level</label>
+                    <label className="text-slate-600 dark:text-white/40 uppercase block text-[10px]">Severity Level</label>
                     <select
                       value={newTicketPriority}
                       onChange={(e) => setNewTicketPriority(e.target.value)}
-                      className="w-full bg-[#07090e] border border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-white focus:outline-none cursor-pointer"
+                      className="w-full bg-slate-50 dark:bg-[#07090e] border border-slate-200 dark:border-white/5 focus:border-cyan-500/30 rounded px-3 py-2 text-slate-900 dark:text-white focus:outline-none cursor-pointer"
                     >
                       <option value="LOW">LOW - Maintenance Log Only</option>
                       <option value="MEDIUM">MEDIUM - Standard Inspection</option>
@@ -1724,7 +1827,7 @@ export default function NextGenDashboard() {
 
                   <button
                     type="submit"
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1.5 shadow-[0_0_12px_#2563eb22]"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-slate-900 dark:text-white font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1.5 shadow-[0_0_12px_#2563eb22]"
                   >
                     <Send className="h-4 w-4" />
                     <span>Submit Ticket to Queue</span>
@@ -1740,10 +1843,10 @@ export default function NextGenDashboard() {
         {/* TAB 7: SETTINGS PANEL */}
         {activeTab === "settings" && (
           <div className="space-y-8 animate-fadeIn font-mono text-xs">
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/5 pb-4">
               <div>
-                <span className="text-[10px] text-white/40 uppercase tracking-widest block">Administration Cockpit</span>
-                <h2 className="text-xl font-bold text-white mt-1 uppercase">RBAC & User Management</h2>
+                <span className="text-[10px] text-slate-600 dark:text-white/40 uppercase tracking-widest block">Administration Cockpit</span>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1 uppercase">RBAC & User Management</h2>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-blue-600/10 border border-blue-500/20 text-[#06b6d4]">
                 <ShieldAlert className="h-4 w-4" />
@@ -1755,7 +1858,7 @@ export default function NextGenDashboard() {
               <div className="bg-red-950/20 border border-red-500/30 p-8 rounded-lg max-w-xl text-center space-y-4">
                 <AlertTriangle className="h-12 w-12 text-red-500 mx-auto animate-pulse" />
                 <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider">Clearance Restriction Active</h3>
-                <p className="text-white/60 text-[11px] leading-relaxed">
+                <p className="text-slate-600 dark:text-white/60 text-[11px] leading-relaxed">
                   User directory management, Casl policy evaluation, and granular role modifications require Administrator privileges. Contact your supervisor for overrides.
                 </p>
               </div>
@@ -1763,10 +1866,10 @@ export default function NextGenDashboard() {
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Left Column: Registered Users list */}
                 <div className="xl:col-span-2 space-y-6">
-                  <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)] font-mono">
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                      <span className="font-bold text-white uppercase text-xs tracking-wider">Active Platform Operators</span>
-                      <span className="text-[9px] px-2 py-0.5 bg-white/5 border border-white/10 rounded text-white/40">
+                  <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)] font-mono">
+                    <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/5 pb-2">
+                      <span className="font-bold text-slate-900 dark:text-white uppercase text-xs tracking-wider">Active Platform Operators</span>
+                      <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-slate-600 dark:text-white/40">
                         {usersList.length} Accounts Active
                       </span>
                     </div>
@@ -1774,20 +1877,20 @@ export default function NextGenDashboard() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-white/5 text-white/40 text-[9px] uppercase tracking-wider">
+                          <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/40 text-[9px] uppercase tracking-wider">
                             <th className="py-2.5">Name</th>
                             <th className="py-2.5">Email</th>
                             <th className="py-2.5">Role Binding</th>
                             <th className="py-2.5 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 text-[11px] text-white/80">
+                        <tbody className="divide-y divide-white/5 text-[11px] text-slate-600 dark:text-white/80">
                           {usersList.map((u) => (
-                            <tr key={u.id} className="hover:bg-white/[0.01]">
-                              <td className="py-3 font-semibold text-white">
+                            <tr key={u.id} className="hover:bg-slate-100 dark:bg-white/[0.01]">
+                              <td className="py-3 font-semibold text-slate-900 dark:text-white">
                                 {u.firstName} {u.lastName}
                               </td>
-                              <td className="py-3 text-white/50">{u.email}</td>
+                              <td className="py-3 text-slate-600 dark:text-white/50">{u.email}</td>
                               <td className="py-3">
                                 <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[#06b6d4] font-bold text-[9px] uppercase tracking-wider">
                                   {u.role?.name || "User"}
@@ -1797,7 +1900,7 @@ export default function NextGenDashboard() {
                                 <select
                                   value={u.role?.id || 2}
                                   onChange={(e) => handleAssignRole(u.id, Number(e.target.value))}
-                                  className="bg-[#121620] border border-white/10 text-white font-mono text-[10px] rounded px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                  className="bg-[#121620] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-[10px] rounded px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
                                 >
                                   <option value={1}>Admin</option>
                                   <option value={2}>User</option>
@@ -1817,40 +1920,40 @@ export default function NextGenDashboard() {
 
                 {/* Right Column: CASL Rules Cheat Sheet */}
                 <div className="space-y-6">
-                  <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)]">
-                    <div className="border-b border-white/5 pb-2">
-                      <span className="font-bold text-white uppercase text-xs tracking-wider block">CASL Authorization Rules</span>
-                      <span className="text-[9px] text-white/40 mt-0.5 block">Active frontend RBAC permission map</span>
+                  <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)]">
+                    <div className="border-b border-slate-200 dark:border-white/5 pb-2">
+                      <span className="font-bold text-slate-900 dark:text-white uppercase text-xs tracking-wider block">CASL Authorization Rules</span>
+                      <span className="text-[9px] text-slate-600 dark:text-white/40 mt-0.5 block">Active frontend RBAC permission map</span>
                     </div>
 
-                    <div className="space-y-3 text-[10px] text-white/70">
-                      <div className="p-3 bg-white/5 border border-white/5 rounded space-y-1">
+                    <div className="space-y-3 text-[10px] text-slate-600 dark:text-white/70">
+                      <div className="p-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
                         <span className="font-bold text-emerald-400 uppercase text-[9px]">Admin Privilege Scope</span>
-                        <p className="text-white/40">Full capabilities: manage everything, delegate roles, edit inventory parameters.</p>
+                        <p className="text-slate-600 dark:text-white/40">Full capabilities: manage everything, delegate roles, edit inventory parameters.</p>
                       </div>
-                      <div className="p-3 bg-white/5 border border-white/5 rounded space-y-1">
+                      <div className="p-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
                         <span className="font-bold text-[#06b6d4] uppercase text-[9px]">Support Engineer Scope</span>
-                        <p className="text-white/40">Create tickets, view platform details, assign field technicians to high-acuity defects.</p>
+                        <p className="text-slate-600 dark:text-white/40">Create tickets, view platform details, assign field technicians to high-acuity defects.</p>
                       </div>
-                      <div className="p-3 bg-white/5 border border-white/5 rounded space-y-1">
+                      <div className="p-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
                         <span className="font-bold text-amber-400 uppercase text-[9px]">Technician Scope</span>
-                        <p className="text-white/40">Inspect machines, command clearance scopes, close active active service tickets.</p>
+                        <p className="text-slate-600 dark:text-white/40">Inspect machines, command clearance scopes, close active active service tickets.</p>
                       </div>
-                      <div className="p-3 bg-white/5 border border-white/5 rounded space-y-1">
+                      <div className="p-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
                         <span className="font-bold text-purple-400 uppercase text-[9px]">Client Scope</span>
-                        <p className="text-white/40">View assigned machines, raise client incident reports, strictly isolated from other tenants.</p>
+                        <p className="text-slate-600 dark:text-white/40">View assigned machines, raise client incident reports, strictly isolated from other tenants.</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#0c0e16] border border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)]">
-                    <div className="border-b border-white/5 pb-2">
-                      <span className="font-bold text-white uppercase text-xs tracking-wider block">Database Status</span>
+                  <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-6 rounded-lg space-y-4 shadow-[0_4px_25px_rgba(0,0,0,0.4)]">
+                    <div className="border-b border-slate-200 dark:border-white/5 pb-2">
+                      <span className="font-bold text-slate-900 dark:text-white uppercase text-xs tracking-wider block">Database Status</span>
                     </div>
-                    <div className="p-3 bg-white/5 border border-white/5 rounded flex justify-between items-center">
+                    <div className="p-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded flex justify-between items-center">
                       <div>
-                        <span className="block font-semibold text-white">NestJS Core</span>
-                        <span className="block text-[9px] text-white/40">URL: http://localhost:7000/api/v1</span>
+                        <span className="block font-semibold text-slate-900 dark:text-white">NestJS Core</span>
+                        <span className="block text-[9px] text-slate-600 dark:text-white/40">URL: http://localhost:7000/api/v1</span>
                       </div>
                       <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold rounded uppercase text-[8px]">ONLINE</span>
                     </div>
@@ -1863,23 +1966,23 @@ export default function NextGenDashboard() {
 
         {/* TAB 8: SUPPORT PANEL */}
         {activeTab === "support" && (
-          <div className="bg-[#0c0e16] border border-white/5 p-8 rounded-lg max-w-2xl space-y-6 font-mono text-xs animate-fadeIn">
-            <div className="border-b border-white/5 pb-2">
-              <span className="text-[10px] text-white/40 uppercase tracking-widest block">Operator Assistance</span>
-              <h2 className="text-xl font-bold text-white mt-1 uppercase">Technical Support & FAQs</h2>
+          <div className="bg-slate-50 dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 p-8 rounded-lg max-w-2xl space-y-6 font-mono text-xs animate-fadeIn">
+            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
+              <span className="text-[10px] text-slate-600 dark:text-white/40 uppercase tracking-widest block">Operator Assistance</span>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1 uppercase">Technical Support & FAQs</h2>
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 bg-white/5 border border-white/5 rounded space-y-1">
-                <span className="block font-bold text-white uppercase text-[10px]">How do I isolate a leaking fluid flange seal?</span>
-                <p className="text-white/60 text-[11px] leading-relaxed">
+              <div className="p-4 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
+                <span className="block font-bold text-slate-900 dark:text-white uppercase text-[10px]">How do I isolate a leaking fluid flange seal?</span>
+                <p className="text-slate-600 dark:text-white/60 text-[11px] leading-relaxed">
                   Navigate to the "Diagnostics" panel, engage step 2 in the guided isolation map, and press "Confirm Seal Intact" or "Compromised" to automatically command telemetry values to isolate primary bypass loops.
                 </p>
               </div>
 
-              <div className="p-4 bg-white/5 border border-white/5 rounded space-y-1">
-                <span className="block font-bold text-white uppercase text-[10px]">What are regional high-acuity overrides?</span>
-                <p className="text-white/60 text-[11px] leading-relaxed">
+              <div className="p-4 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-1">
+                <span className="block font-bold text-slate-900 dark:text-white uppercase text-[10px]">What are regional high-acuity overrides?</span>
+                <p className="text-slate-600 dark:text-white/60 text-[11px] leading-relaxed">
                   High-acuity medical diagnostic units like the MRI-X900 are regulated to prevent instant automated trips. Using "Calibrate" will synchronize system sensors directly before raising manual overrides to avoid scans failure in hospitals.
                 </p>
               </div>
@@ -1891,11 +1994,11 @@ export default function NextGenDashboard() {
 
       {/* -------------------- GENERAL ORDER SUCCESS DIALOG MODAL -------------------- */}
       {showOrderSuccess && (
-        <div className="absolute inset-0 bg-[#090b10]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0e16] border border-[#06b6d4]/40 p-8 rounded-lg max-w-md w-full shadow-[0_0_50px_rgba(6,182,212,0.15)] space-y-6 font-mono text-xs relative">
+        <div className="absolute inset-0 bg-slate-50 dark:bg-[#090b10]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-50 dark:bg-[#0c0e16] border border-[#06b6d4]/40 p-8 rounded-lg max-w-md w-full shadow-[0_0_50px_rgba(6,182,212,0.15)] space-y-6 font-mono text-xs relative">
             <button
               onClick={() => setShowOrderSuccess(false)}
-              className="absolute top-4 right-4 text-white/50 hover:text-white"
+              className="absolute top-4 right-4 text-slate-600 dark:text-white/50 hover:text-slate-900 dark:text-white"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1904,30 +2007,30 @@ export default function NextGenDashboard() {
               <div className="h-12 w-12 rounded-full bg-emerald-500/10 border border-emerald-500 flex items-center justify-center text-emerald-400 mx-auto text-xl font-bold animate-pulse">
                 ✓
               </div>
-              <h3 className="text-lg font-bold text-white uppercase tracking-wider">Purchase Order Logged</h3>
-              <p className="text-white/50 text-[10px]">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider">Purchase Order Logged</h3>
+              <p className="text-slate-600 dark:text-white/50 text-[10px]">
                 Part order dispatched from primary regional warehouse stock queue.
               </p>
             </div>
 
-            <div className="p-4 bg-white/5 border border-white/5 rounded space-y-2">
-              <div className="flex justify-between text-white/60">
+            <div className="p-4 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded space-y-2">
+              <div className="flex justify-between text-slate-600 dark:text-white/60">
                 <span>Ordered Item:</span>
-                <span className="text-white font-bold uppercase">{orderPartName}</span>
+                <span className="text-slate-900 dark:text-white font-bold uppercase">{orderPartName}</span>
               </div>
-              <div className="flex justify-between text-white/60">
+              <div className="flex justify-between text-slate-600 dark:text-white/60">
                 <span>ETA:</span>
                 <span className="text-cyan-400 font-bold">24 Hours (Express Dispatch)</span>
               </div>
-              <div className="flex justify-between text-white/60">
+              <div className="flex justify-between text-slate-600 dark:text-white/60">
                 <span>Tracking ID:</span>
-                <span className="text-white">PO-5542291-OMEGA</span>
+                <span className="text-slate-900 dark:text-white">PO-5542291-OMEGA</span>
               </div>
             </div>
 
             <button
               onClick={() => setShowOrderSuccess(false)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-widest rounded transition"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-slate-900 dark:text-white font-bold uppercase tracking-widest rounded transition"
             >
               Acknowledge Log
             </button>
