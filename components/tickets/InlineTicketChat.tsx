@@ -321,6 +321,14 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             </p>
           </div>
         </div>
+      ) : !ticket.assignee_details || (!ticket.assignee_details.firstName && !ticket.assignee_details.lastName) ? (
+        <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
+          <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
+            <p className="text-xs font-mono text-amber-400/60">
+              ⚠️ Technician not assigned yet. Please wait for the technician to be assigned.
+            </p>
+          </div>
+        </div>
       ) : connectError ? (
         <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
           <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-2">

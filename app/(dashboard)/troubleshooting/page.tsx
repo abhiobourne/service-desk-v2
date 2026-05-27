@@ -16,6 +16,7 @@ import { useAbility } from "@/providers/AbilityProvider";
 import { GlbViewerDark, type DarkHotspot } from "@/components/GlbViewerDark";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
 import { fuzzyAny } from "@/lib/search";
+import { Panel, Group, Separator } from "react-resizable-panels";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
@@ -1147,65 +1148,69 @@ export default function TroubleshootingPage() {
             </button>
           </div>
 
-          {/* ── CENTER: DOC VIEWER ── */}
-          <div className="flex-1 min-w-0 flex flex-col border-r border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#06070a] overflow-hidden">
-            {/* Doc panel header */}
-            <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center px-3 gap-2 bg-slate-50 dark:bg-[#090b10]">
-              <FileText className="h-3.5 w-3.5 text-slate-600 dark:text-white/20" />
-              <span className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest truncate flex-1">
-                {activeFaqItems ? "FAQs" : activeDocName ?? "Document Viewer"}
-              </span>
-              {activeDocSrc && (
-                <a href={activeDocSrc} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <DocViewer src={activeDocSrc} fileName={activeDocName} faqItems={activeFaqItems} />
-            </div>
-          </div>
-
-          {/* ── RIGHT: 3D GLB VIEWER / AI CHAT ── */}
-          <div className="w-[480px] shrink-0 flex flex-col bg-slate-50 dark:bg-[#06070a] overflow-hidden">
-            {/* Panel header with tabs */}
-            <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center bg-slate-50 dark:bg-[#090b10]">
-              <button
-                onClick={() => setRightPanel("3d")}
-                className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-slate-200 dark:border-white/5 transition ${rightPanel === "3d" ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
-                  }`}
-              >
-                <Box className="h-3 w-3" />
-                {activeGlbNode ? activeGlbNode.design_name.slice(0, 20) : "3D Viewer"}
-              </button>
-              <button
-                onClick={() => { setRightPanel("chat"); if (!chatStarted) startChat(); }}
-                className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest transition ${rightPanel === "chat" ? "text-violet-400 bg-violet-500/10" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
-                  }`}
-              >
-                <MessageCircle className="h-3 w-3" />
-                AI Assistant
-              </button>
-              {rightPanel === "3d" && hotspots.length > 0 && (
-                <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
-              )}
-            </div>
-
-            {/* 3D viewer */}
-            {rightPanel === "3d" && (
-              <div className="flex-1 min-h-0">
-                <GlbViewerDark
-                  src={activeGlbSrc}
-                  hotspots={hotspots}
-                  canGoBack={glbHistory.length > 0}
-                  onBack={handleGlbBack}
-                  onAddActive={activeGlbNode ? () => togglePartSelect(activeGlbNodeKey) : undefined}
-                  isActiveAdded={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey)}
-                />
+          {/* ── CENTER AND RIGHT PANELS ── */}
+          <Group orientation="horizontal" className="flex-1 min-w-0 flex overflow-hidden">
+            {/* ── CENTER: DOC VIEWER ── */}
+            <Panel defaultSize={50} minSize={25} className="flex flex-col border-r border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#06070a] overflow-hidden">
+              {/* Doc panel header */}
+              <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center px-3 gap-2 bg-slate-50 dark:bg-[#090b10]">
+                <FileText className="h-3.5 w-3.5 text-slate-600 dark:text-white/20" />
+                <span className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest truncate flex-1">
+                  {activeFaqItems ? "FAQs" : activeDocName ?? "Document Viewer"}
+                </span>
+                {activeDocSrc && (
+                  <a href={activeDocSrc} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
+                )}
               </div>
-            )}
+              <div className="flex-1 overflow-hidden">
+                <DocViewer src={activeDocSrc} fileName={activeDocName} faqItems={activeFaqItems} />
+              </div>
+            </Panel>
 
-            {/* AI Chat */}
-            {rightPanel === "chat" && (
-              <div className="flex-1 min-h-0 flex flex-col">
+            <Separator className="w-1.5 hover:bg-violet-500/50 active:bg-violet-500/80 cursor-col-resize shrink-0 transition-colors z-10 -mx-0.5" />
+
+            {/* ── RIGHT: 3D GLB VIEWER / AI CHAT ── */}
+            <Panel defaultSize={50} minSize={25} className="flex flex-col bg-slate-50 dark:bg-[#06070a] overflow-hidden">
+              {/* Panel header with tabs */}
+              <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center bg-slate-50 dark:bg-[#090b10]">
+                <button
+                  onClick={() => setRightPanel("3d")}
+                  className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-slate-200 dark:border-white/5 transition ${rightPanel === "3d" ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
+                    }`}
+                >
+                  <Box className="h-3 w-3" />
+                  {activeGlbNode ? activeGlbNode.design_name.slice(0, 20) : "3D Viewer"}
+                </button>
+                <button
+                  onClick={() => { setRightPanel("chat"); if (!chatStarted) startChat(); }}
+                  className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest transition ${rightPanel === "chat" ? "text-violet-400 bg-violet-500/10" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
+                    }`}
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  AI Assistant
+                </button>
+                {rightPanel === "3d" && hotspots.length > 0 && (
+                  <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
+                )}
+              </div>
+
+              {/* 3D viewer */}
+              {rightPanel === "3d" && (
+                <div className="flex-1 min-h-0">
+                  <GlbViewerDark
+                    src={activeGlbSrc}
+                    hotspots={hotspots}
+                    canGoBack={glbHistory.length > 0}
+                    onBack={handleGlbBack}
+                    onAddActive={activeGlbNode ? () => togglePartSelect(activeGlbNodeKey) : undefined}
+                    isActiveAdded={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey)}
+                  />
+                </div>
+              )}
+
+              {/* AI Chat */}
+              {rightPanel === "chat" && (
+                <div className="flex-1 min-h-0 flex flex-col">
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#08090e]">
                   {chatMessages.length === 0 && (
@@ -1267,7 +1272,8 @@ export default function TroubleshootingPage() {
                 </div>
               </div>
             )}
-          </div>
+            </Panel>
+          </Group>
 
         </div>
       )} {/* end hasContext */}

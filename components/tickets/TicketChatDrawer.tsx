@@ -227,6 +227,14 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
               </p>
             </div>
           </div>
+        ) : !ticketInfo?.assignee_details || (!ticketInfo.assignee_details.firstName && !ticketInfo.assignee_details.lastName) ? (
+          <div className="bg-[#090b10] border-t border-white/5 px-4 py-4">
+            <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
+              <p className="text-xs font-mono text-amber-400/60">
+                ⚠️ Assign a technician to enable chat.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="bg-[#090b10] border-t border-white/5 px-3 py-3 flex items-center gap-2">
             <input
