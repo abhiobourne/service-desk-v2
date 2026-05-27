@@ -5,10 +5,10 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import {
   ChevronRight, ChevronDown, Box, Folder, FileText, BookOpen, HelpCircle,
   Search, X, ArrowLeft, Package, Loader2, ChevronLeft, File, CheckSquare, Square,
-  FileSpreadsheet, FileImage, MessageCircle, Plus, Ticket, ExternalLink,
+  FileSpreadsheet, FileImage, MessageCircle, Plus, Ticket, ExternalLink, ClipboardList, Layers,
 } from "lucide-react";
 import {
-  fetchProductCatalog, fetchTroubleshootingByProduct,
+  fetchProductCatalog, fetchTroubleshootingByProduct, fetchOrdersList,
   ApiProductCatalog, TroubleshootingDesignNode,
 } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -276,13 +276,17 @@ export default function TroubleshootingPage() {
   const orderRef = params?.orderRef ? decodeURIComponent(params.orderRef) : "";
   const productNameFromUrl = params?.productName ? decodeURIComponent(params.productName) : "";
 
-  const isFullView = searchParams.get("full") === "1";
+  // Full-view: either ?full=1 OR opened via nested /troubleshooting/:orderRef/:productName route
+  const isFullView = searchParams.get("full") === "1" || !!(params?.orderRef && params?.productName);
   const queryProductId = searchParams.get("productId") ?? "";
   const queryClientId = searchParams.get("clientId") ?? "";
   const queryOrderId = searchParams.get("orderId") ?? "";
 
   const [products, setProducts]           = useState<ApiProductCatalog[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [allOrders, setAllOrders]         = useState<any[]>([]);
+  const [selectedOrderCtx, setSelectedOrderCtx] = useState<any | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [treeNodes, setTreeNodes]         = useState<TroubleshootingDesignNode[]>([]);
   const [expanded, setExpanded]           = useState<Set<string>>(new Set(["product-root"]));
   const [loadingTree, setLoadingTree]     = useState(false);
@@ -325,28 +329,61 @@ export default function TroubleshootingPage() {
 
   // Auth guard is handled globally by DashboardLayout
 
-  // Load products
+  // Gate: both order and product must be selected before showing the 3-pane workspace
+  const hasOrderCtx   = !!(selectedOrderCtx?.id || queryOrderId || orderRef);
+  const hasProductCtx = !!selectedProductId;
+  const hasContext    = hasOrderCtx && hasProductCtx;
+
+  // Load products catalog + orders list.
+  // We eagerly set selectedProductId from the URL so the tree loads without waiting for catalog.
+  // After catalog loads, we normalise the ID (URL might pass product_id display string instead of UUID).
   useEffect(() => {
     if (!user && !isFullView) return;
+
+    if (queryProductId) {
+      setSelectedProductId(queryProductId);
+    }
+
     fetchProductCatalog().then(list => {
       setProducts(list);
       setProductsLoading(false);
-      
-      let matchedProductId = "";
-      if (queryProductId && list.some((p) => p.id === queryProductId)) {
-        matchedProductId = queryProductId;
-      } else if (productNameFromUrl) {
-        const found = list.find((p) => p.product_name.toLowerCase() === productNameFromUrl.toLowerCase());
-        if (found) matchedProductId = found.id;
+
+      // Normalise: if the URL param matches by product_id (display) rather than UUID, resolve to UUID
+      if (queryProductId) {
+        const byUuid    = list.find(p => p.id === queryProductId);
+        const byDisplay = list.find(p => p.product_id === queryProductId);
+        const resolved  = byUuid ?? byDisplay;
+        if (resolved && resolved.id !== queryProductId) {
+          setSelectedProductId(resolved.id);
+        }
+        return;
       }
 
-      if (matchedProductId) {
-        setSelectedProductId(matchedProductId);
-      } else if (list.length > 0) {
-        setSelectedProductId(list[0].id);
+      // Match by URL product name (nested route)
+      if (productNameFromUrl) {
+        const found = list.find(p => p.product_name.toLowerCase() === productNameFromUrl.toLowerCase());
+        if (found) { setSelectedProductId(found.id); return; }
+      }
+
+      // No URL context — leave unselected; user must navigate from an order
+    });
+
+    setOrdersLoading(true);
+    fetchOrdersList().then(list => {
+      setAllOrders(list);
+      setOrdersLoading(false);
+      if (queryOrderId) {
+        const matched = list.find((o: any) => o.id === queryOrderId || o.order_id === queryOrderId);
+        if (matched) setSelectedOrderCtx(matched);
       }
     });
-  }, [user, queryProductId, productNameFromUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isFullView, queryProductId, productNameFromUrl]);
+
+  // Clear part selections when order or product context changes
+  useEffect(() => {
+    setSelectedParts(new Set());
+  }, [selectedProductId, selectedOrderCtx]);
 
   // Load tree when product changes
   useEffect(() => {
@@ -552,17 +589,55 @@ export default function TroubleshootingPage() {
 
   const activeGlbNodeKey = activeGlbNode ? (activeGlbNode.design_version_id || activeGlbNode.design_uuid) : "";
 
-  // Flat tree list (search-filtered)
+  // When search is active, compute an expanded set that auto-expands ancestors of
+  // every matching node so matches are always visible regardless of collapse state.
+  const searchExpandedSet = useMemo<Set<string>>(() => {
+    const q = search.trim();
+    if (!q || !treeNodes.length) return expanded;
+
+    // Collect keys of all matching nodes
+    const matchKeys = new Set<string>();
+    for (const node of treeNodes) {
+      if (fuzzyAny([node.design_name, node.design_id, node.design_type], q)) {
+        matchKeys.add(node.design_version_id || node.design_uuid);
+      }
+    }
+    if (matchKeys.size === 0) return expanded;
+
+    // Walk up the parent chain for every match, adding all ancestor keys
+    const expandSet = new Set<string>(["product-root"]);
+    for (const key of matchKeys) {
+      expandSet.add(key);
+      const startNode = treeNodes.find(n => (n.design_version_id || n.design_uuid) === key);
+      let cur: TroubleshootingDesignNode | undefined = startNode;
+      while (cur?.parent_design_uuid) {
+        const parent = treeNodes.find(
+          n => n.design_uuid === cur!.parent_design_uuid &&
+               n.design_version_id === cur!.parent_version_id,
+        );
+        if (!parent) break;
+        expandSet.add(parent.design_version_id || parent.design_uuid);
+        cur = parent;
+      }
+    }
+    return expandSet;
+  }, [search, treeNodes, expanded]);
+
+  // Flat tree list — when searching, use auto-expanded set and filter to only matching nodes
   const flatItems = useMemo<FlatItem[]>(() => {
     if (!treeNodes.length) return [];
-    const all = buildFlatList(treeNodes, expanded, activeGlbId, activeDocSrc ? "doc" : null, selectedProductId, selectedProduct?.product_name ?? "Product");
+    const effectiveExpanded = search.trim() ? searchExpandedSet : expanded;
+    const all = buildFlatList(treeNodes, effectiveExpanded, activeGlbId, activeDocSrc ? "doc" : null, selectedProductId, selectedProduct?.product_name ?? "Product");
     if (!search.trim()) return all;
     return all.filter(item => {
-      if (item.kind === "node") return fuzzyAny([item.node.design_name, item.node.design_id, item.node.design_type], search);
+      if (item.kind === "node") {
+        if (item.isProductRoot) return true; // always show root
+        return fuzzyAny([item.node.design_name, item.node.design_id, item.node.design_type], search);
+      }
       if (item.kind === "file") return fuzzyAny([item.name], search);
       return false;
     });
-  }, [treeNodes, expanded, activeGlbId, activeDocSrc, selectedProductId, selectedProduct, search]);
+  }, [treeNodes, expanded, searchExpandedSet, activeGlbId, activeDocSrc, selectedProductId, selectedProduct, search]);
 
   // Node lookup helper (for file click ownership)
   const nodeByKey = useCallback((key: string) => treeNodes.find(n => (n.design_version_id || n.design_uuid) === key), [treeNodes]);
@@ -719,16 +794,35 @@ export default function TroubleshootingPage() {
           );
         })}
 
-        {/* Product selector + Raise Ticket */}
+        {/* Order + Product selectors + Raise Ticket */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          {/* Order selector */}
+          <ClipboardList className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+          <select
+            value={selectedOrderCtx?.id ?? ""}
+            onChange={e => {
+              const order = allOrders.find((o: any) => o.id === e.target.value) ?? null;
+              setSelectedOrderCtx(order);
+            }}
+            className="bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-cyan-500/50 max-w-[180px]"
+          >
+            <option value="">{ordersLoading ? "Loading…" : "— Select order —"}</option>
+            {allOrders.map((o: any) => (
+              <option key={o.id} value={o.id}>
+                {o.order_id}{o.client_name ? ` · ${o.client_name}` : ""}
+              </option>
+            ))}
+          </select>
+          <span className="text-white/10 shrink-0">|</span>
+
+          {/* Product selector */}
           <Package className="h-3.5 w-3.5 text-violet-400 shrink-0" />
           <select
             value={selectedProductId}
             onChange={e => setSelectedProductId(e.target.value)}
             className="bg-[#0c0e16] border border-white/10 text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-violet-500/50 max-w-[220px]"
           >
-            {productsLoading && <option>Loading…</option>}
-            {!productsLoading && products.length === 0 && <option>No products</option>}
+            <option value="">{productsLoading ? "Loading…" : "— Select product —"}</option>
             {products.map(p => (
               <option key={p.id} value={p.id}>{p.product_name} ({p.product_id})</option>
             ))}
@@ -757,8 +851,10 @@ export default function TroubleshootingPage() {
             onClick={() => {
               const qs = new URLSearchParams({ productId: selectedProductId, full: "1" });
               if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
-              if (queryClientId) qs.set("clientId", queryClientId);
-              if (queryOrderId) qs.set("orderId", queryOrderId);
+              const ctxClientId = selectedOrderCtx?.client_id ?? queryClientId;
+              const ctxOrderId = selectedOrderCtx?.id ?? queryOrderId;
+              if (ctxClientId) qs.set("clientId", ctxClientId);
+              if (ctxOrderId) qs.set("orderId", ctxOrderId);
               
               const pRef = encodeURIComponent(orderRef || "VIEW");
               const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
@@ -774,6 +870,37 @@ export default function TroubleshootingPage() {
       </header>
 
       {/* ─── Body ───────────────────────────────────────────────────── */}
+      {!hasContext ? (
+        /* No-context empty state */
+        <div className="flex flex-1 items-center justify-center bg-[#06070a]">
+          <div className="flex flex-col items-center gap-4 text-center p-8 max-w-sm">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/8 flex items-center justify-center">
+              <Layers className="w-7 h-7 text-white/20" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-mono font-semibold text-white/50">No context selected</p>
+              <p className="text-xs font-mono text-white/25 leading-relaxed">
+                Open troubleshooting from an order or product to start a session.
+                Both an order and a product must be set before the workspace loads.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              {!hasOrderCtx && (
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded">
+                  <ClipboardList className="h-3 w-3" />
+                  Order missing
+                </span>
+              )}
+              {!hasProductCtx && (
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-violet-400/70 bg-violet-500/10 border border-violet-500/20 px-3 py-1.5 rounded">
+                  <Package className="h-3 w-3" />
+                  Product missing
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── LEFT SIDEBAR ── */}
@@ -782,35 +909,43 @@ export default function TroubleshootingPage() {
             sidebarCollapsed ? "w-0" : "w-[300px]"
           }`}
         >
-          {/* Sidebar header */}
-          <div className="px-3 py-2 border-b border-white/5 shrink-0 flex items-center gap-2">
-            {search ? (
-              <>
-                <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
-                <input
-                  ref={searchRef}
-                  autoFocus
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Filter…"
-                  className="flex-1 bg-transparent text-xs font-mono text-white placeholder-white/20 focus:outline-none"
-                />
-                <button onClick={() => setSearch("")}>
-                  <X className="h-3.5 w-3.5 text-white/30 hover:text-white/60" />
+          {/* Sidebar header — always-visible fuzzy search */}
+          <div className="px-2 py-1.5 border-b border-white/5 shrink-0 space-y-1.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[9px] font-mono text-white/25 uppercase tracking-widest truncate">
+                {selectedProduct?.product_name ?? "Assembly Structure"}
+              </span>
+              <button
+                onClick={() => setExpanded(new Set())}
+                title="Collapse all"
+                className="p-1 rounded hover:bg-white/5 text-white/25 hover:text-white/55 text-[9px] font-mono"
+              >
+                ⊟
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Fuzzy search parts…"
+                className="w-full bg-white/[0.04] border border-white/8 rounded text-[10px] font-mono text-white placeholder-white/20 pl-7 pr-6 py-1.5 focus:outline-none focus:border-white/20"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60"
+                >
+                  <X className="h-3 w-3" />
                 </button>
-              </>
-            ) : (
-              <>
-                <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest truncate flex-1">
-                  {selectedProduct?.product_name ?? "Assembly Structure"}
-                </span>
-                <button onClick={() => setSearch(" ")} title="Search" className="p-1 rounded hover:bg-white/5 text-white/30 hover:text-white/60">
-                  <Search className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => setExpanded(new Set())} title="Collapse all" className="p-1 rounded hover:bg-white/5 text-white/30 hover:text-white/60 text-[9px] font-mono uppercase tracking-wide">
-                  ⊟
-                </button>
-              </>
+              )}
+            </div>
+            {search.trim() && (
+              <p className="text-[9px] font-mono text-white/20 px-1">
+                {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length} match
+                {flatItems.filter(i => i.kind === "node" && !i.isProductRoot).length !== 1 ? "es" : ""}
+              </p>
             )}
           </div>
 
@@ -1119,13 +1254,14 @@ export default function TroubleshootingPage() {
         </div>
 
       </div>
+      )} {/* end hasContext */}
 
       <AddTicketDrawer
         isOpen={addTicketOpen}
         onClose={() => setAddTicketOpen(false)}
         onCreated={() => setAddTicketOpen(false)}
-        initialClientId={queryClientId}
-        initialOrderId={queryOrderId || orderRef}
+        initialClientId={selectedOrderCtx?.client_id ?? queryClientId}
+        initialOrderId={selectedOrderCtx?.id ?? queryOrderId ?? orderRef}
         initialProductId={selectedProductId}
         selectedPartNodes={selectedPartNodes}
       />

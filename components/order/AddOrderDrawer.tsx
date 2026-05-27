@@ -374,17 +374,15 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
     );
   };
 
-  // Filter products for search selector
+  // Filter products for search selector.
+  // When query is empty show all un-carted products (up to 8); typing narrows the list.
   const filteredProducts = useMemo(() => {
     const s = productSearch.toLowerCase().trim();
-    if (!s) return [];
-    return catalog
-      .filter(
-        (p) =>
-          !cart.some((c) => c.product_id === p.id) &&
-          (p.product_name.toLowerCase().includes(s) || p.product_id.toLowerCase().includes(s))
-      )
-      .slice(0, 5);
+    const available = catalog.filter((p) => !cart.some((c) => c.product_id === p.id));
+    if (!s) return available.slice(0, 8);
+    return available
+      .filter((p) => p.product_name.toLowerCase().includes(s) || p.product_id.toLowerCase().includes(s))
+      .slice(0, 8);
   }, [catalog, productSearch, cart]);
 
   // Place order
@@ -556,23 +554,30 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
                   setShowSearchList(true);
                 }}
                 onFocus={() => setShowSearchList(true)}
-                placeholder="Search catalog by product name…"
+                onBlur={() => setTimeout(() => setShowSearchList(false), 150)}
+                placeholder="Search or click to browse products…"
                 className="w-full h-10 bg-[#0c0e16] border border-white/10 text-xs text-white px-3 rounded-lg focus:outline-none focus:border-cyan-400/40 placeholder:text-white/20"
               />
 
-              {showSearchList && filteredProducts.length > 0 && (
-                <div className="absolute z-10 left-0 right-0 mt-1 bg-[#0c0e16] border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                  {filteredProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleAddProduct(p)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-white/5 border-b border-white/5 text-xs text-white flex justify-between items-center transition"
-                    >
-                      <span className="font-medium truncate">{p.product_name}</span>
-                      <span className="text-[9px] text-[#06b6d4] font-mono shrink-0">{p.product_id}</span>
-                    </button>
-                  ))}
+              {showSearchList && (
+                <div className="absolute z-10 left-0 right-0 mt-1 bg-[#0c0e16] border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleAddProduct(p)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 border-b border-white/5 last:border-0 text-xs text-white flex justify-between items-center gap-2 transition"
+                      >
+                        <span className="font-medium truncate">{p.product_name}</span>
+                        <span className="text-[9px] text-[#06b6d4] font-mono shrink-0">{p.product_id}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-3 text-[10px] font-mono text-white/30 text-center">
+                      {catalog.length === 0 ? "Loading catalog…" : "All products already added"}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

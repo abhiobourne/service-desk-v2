@@ -1,29 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Plus, Search, X, ChevronLeft, ChevronRight, Ticket, Package, Loader2,
-} from "lucide-react";
-import {
-  fetchTicketsPaginated, OrderTicket, OrderTicketMeta,
-} from "@/lib/api";
+import { Plus, Search, X, Ticket, Package } from "lucide-react";
+import { fetchTicketsPaginated, OrderTicket, OrderTicketMeta } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAbility } from "@/providers/AbilityProvider";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
 import { fuzzyAny } from "@/lib/search";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  open:        { bg: "bg-blue-500/15 border-blue-500/25",      text: "text-blue-300",    dot: "bg-blue-400"    },
-  in_progress: { bg: "bg-amber-500/15 border-amber-500/25",    text: "text-amber-300",   dot: "bg-amber-400"   },
-  pending:     { bg: "bg-orange-500/15 border-orange-500/25",  text: "text-orange-300",  dot: "bg-orange-400"  },
-  resolved:    { bg: "bg-emerald-500/15 border-emerald-500/25",text: "text-emerald-300", dot: "bg-emerald-400" },
-  closed:      { bg: "bg-white/5 border-white/10",             text: "text-white/30",    dot: "bg-white/20"    },
+  open:        { bg: "bg-blue-500/15 border-blue-500/25",       text: "text-blue-300",    dot: "bg-blue-400"    },
+  in_progress: { bg: "bg-amber-500/15 border-amber-500/25",     text: "text-amber-300",   dot: "bg-amber-400"   },
+  pending:     { bg: "bg-orange-500/15 border-orange-500/25",   text: "text-orange-300",  dot: "bg-orange-400"  },
+  resolved:    { bg: "bg-emerald-500/15 border-emerald-500/25", text: "text-emerald-300", dot: "bg-emerald-400" },
+  closed:      { bg: "bg-white/5 border-white/10",              text: "text-white/30",    dot: "bg-white/20"    },
 };
+
+const PAGE_SIZE = 20;
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status?.toLowerCase()] ?? STATUS_STYLES.open;
-  const label = (status ?? "open").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const label = (status ?? "open").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-mono font-semibold ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
@@ -48,47 +48,64 @@ export default function TicketsPage() {
   const { can } = useAbility();
 
   const [tickets, setTickets] = useState<OrderTicket[]>([]);
-  const [meta, setMeta] = useState<OrderTicketMeta>({ total: 0, page: 1, limit: 20, totalPages: 1 });
+  const [meta, setMeta] = useState<OrderTicketMeta>({ total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedSearch = useDebounce(searchInput, 400);
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { items, meta: m } = await fetchTicketsPaginated({ page, limit: 20, search, orderBy: "createdAt", order: "DESC" });
+    const { items, meta: m } = await fetchTicketsPaginated({
+      page,
+      limit: pageSize,
+      search: debouncedSearch,
+      orderBy: "createdAt",
+      order: "DESC",
+    });
     setTickets(items);
     setMeta(m);
     setLoading(false);
-  }, [user, page, search]);
+  }, [user, page, pageSize, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => { setSearch(searchInput); setPage(1); }, 500);
-  }, [searchInput]);
+  // Reset to page 1 whenever search or page size changes
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
-  if (authLoading) {
-    return <div className="flex-1 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" /></div>;
-  }
-
+  // Client-side fuzzy filter on top of server results
   const visibleTickets = useMemo(() => {
     if (!searchInput.trim()) return tickets;
-    return tickets.filter((t) => fuzzyAny([
-      t.ticket_id,
-      t.reason?.replace(/<[^>]*>/g, ""),
-      t.description?.replace(/<[^>]*>/g, ""),
-      t.client_name,
-      t.order_id,
-      t.items?.[0]?.product_name,
-      t.assignee_details ? `${t.assignee_details.firstName ?? ""} ${t.assignee_details.lastName ?? ""}` : "",
-      t.status,
-    ], searchInput));
+    return tickets.filter((t) =>
+      fuzzyAny(
+        [
+          t.ticket_id,
+          t.reason?.replace(/<[^>]*>/g, ""),
+          t.description?.replace(/<[^>]*>/g, ""),
+          t.client_name,
+          t.order_id,
+          t.items?.[0]?.product_name,
+          t.assignee_details
+            ? `${t.assignee_details.firstName ?? ""} ${t.assignee_details.lastName ?? ""}`
+            : "",
+          t.status,
+        ],
+        searchInput,
+      ),
+    );
   }, [tickets, searchInput]);
+
+  if (authLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -99,36 +116,49 @@ export default function TicketsPage() {
           <span className="text-sm font-mono font-bold text-white">Tickets</span>
           <span className="text-[10px] font-mono text-white/25">({meta.total})</span>
         </div>
+
         <div className="flex-1" />
+
         <div className="relative w-56">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 pointer-events-none" />
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search tickets…"
-            className="w-full bg-white/3 border border-white/8 text-white text-xs font-mono pl-8 pr-7 py-2 rounded-lg focus:outline-none focus:border-violet-500/40 placeholder:text-white/20" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search tickets…"
+            className="w-full bg-white/3 border border-white/8 text-white text-xs font-mono pl-8 pr-7 py-2 rounded-lg focus:outline-none focus:border-violet-500/40 placeholder:text-white/20"
+          />
           {searchInput && (
-            <button onClick={() => setSearchInput("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60">
+            <button
+              onClick={() => setSearchInput("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60"
+            >
               <X className="w-3 h-3" />
             </button>
           )}
         </div>
+
         {can("add", "tickets") && (
-          <button onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition">
-            <Plus className="w-3.5 h-3.5" />New Ticket
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Ticket
           </button>
         )}
       </div>
 
-      {/* Table */}
+      {/* Table area */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading && (
-          <div className="rounded-xl border border-white/5 bg-[#090b10] p-4">
+          <div className="overflow-hidden rounded-xl border border-white/5 bg-[#090b10] p-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="mb-3 grid grid-cols-[120px_1fr_130px_130px_110px] gap-4 last:mb-0">
-                <div className="h-4 rounded bg-white/5" />
-                <div className="h-4 rounded bg-white/5" />
-                <div className="h-4 rounded bg-white/5" />
-                <div className="h-4 rounded bg-white/5" />
-                <div className="h-4 rounded bg-white/5" />
+                <div className="h-4 rounded bg-white/5 animate-pulse" />
+                <div className="h-4 rounded bg-white/5 animate-pulse" />
+                <div className="h-4 rounded bg-white/5 animate-pulse" />
+                <div className="h-4 rounded bg-white/5 animate-pulse" />
+                <div className="h-4 rounded bg-white/5 animate-pulse" />
               </div>
             ))}
           </div>
@@ -137,12 +167,15 @@ export default function TicketsPage() {
         {!loading && visibleTickets.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full py-24 text-center">
             <Ticket className="w-10 h-10 text-white/10 mb-3" />
-            <p className="text-sm font-mono text-white/25">{searchInput ? `No tickets matching "${searchInput}"` : "No tickets yet"}</p>
+            <p className="text-sm font-mono text-white/25">
+              {searchInput ? `No tickets matching "${searchInput}"` : "No tickets yet"}
+            </p>
           </div>
         )}
 
         {!loading && visibleTickets.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-white/5 bg-[#090b10]">
+            {/* Header */}
             <div className="grid grid-cols-[130px_minmax(260px,1.4fr)_minmax(160px,0.8fr)_120px_140px_110px] border-b border-white/5 bg-white/[0.03] px-4 py-3 text-[9px] font-mono font-bold uppercase tracking-widest text-white/25">
               <span>Ticket</span>
               <span>Issue</span>
@@ -151,11 +184,13 @@ export default function TicketsPage() {
               <span>Assignee</span>
               <span className="text-right">Created</span>
             </div>
-            {visibleTickets.map(t => {
+
+            {visibleTickets.map((t) => {
               const title = (t.reason ?? "Support Request").replace(/<[^>]*>/g, "").slice(0, 100);
               const productName = t.items?.[0]?.product_name;
               const assigneeName = t.assignee_details
-                ? `${t.assignee_details.firstName ?? ""} ${t.assignee_details.lastName ?? ""}`.trim() : null;
+                ? `${t.assignee_details.firstName ?? ""} ${t.assignee_details.lastName ?? ""}`.trim()
+                : null;
               return (
                 <button
                   key={t.id}
@@ -172,7 +207,9 @@ export default function TicketsPage() {
                     <span className="truncate">{productName ?? "—"}</span>
                   </div>
                   <StatusBadge status={t.status} />
-                  <span className="truncate text-[10px] font-mono text-white/35">{assigneeName ?? "Unassigned"}</span>
+                  <span className="truncate text-[10px] font-mono text-white/35">
+                    {assigneeName ?? "Unassigned"}
+                  </span>
                   <span className="text-right text-[10px] font-mono text-white/30">{timeAgo(t.createdAt)}</span>
                 </button>
               );
@@ -182,20 +219,15 @@ export default function TicketsPage() {
       </div>
 
       {/* Pagination */}
-      {meta.totalPages > 1 && (
-        <div className="h-11 shrink-0 border-t border-white/5 flex items-center justify-between px-4 bg-[#06070a]">
-          <span className="text-[10px] font-mono text-white/25">{page} / {meta.totalPages}</span>
-          <div className="flex items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="w-6 h-6 flex items-center justify-center rounded border border-white/8 text-white/30 hover:bg-white/5 disabled:opacity-30">
-              <ChevronLeft className="w-3 h-3" />
-            </button>
-            <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
-              className="w-6 h-6 flex items-center justify-center rounded border border-white/8 text-white/30 hover:bg-white/5 disabled:opacity-30">
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
+      {meta.total > 0 && (
+        <Pagination
+          currentPage={page}
+          totalItems={meta.total}
+          itemsPerPage={pageSize}
+          onPageChange={setPage}
+          onItemsPerPageChange={(size) => { setPageSize(size); setPage(1); }}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
       )}
 
       <AddTicketDrawer isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={load} />

@@ -1048,7 +1048,8 @@ export async function fetchPartsCatalog(): Promise<ApiPartCatalogItem[]> {
           const stock = deterministicPartStock(node.design_uuid || node.design_id);
           const reorderPoint = node.design_type?.toLowerCase().includes("assembly") ? 5 : 12;
           return {
-            id: node.design_version_id || node.design_uuid,
+            // Prefix with product.id so shared assemblies across products get distinct keys
+            id: `${product.id}::${node.design_version_id || node.design_uuid}`,
             part_number: node.design_id,
             name: node.design_name,
             type: node.design_type || "Component",

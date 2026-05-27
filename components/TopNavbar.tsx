@@ -31,17 +31,6 @@ export function TopNavbar() {
 
       {/* Right: search + actions + profile */}
       <div className="flex items-center gap-3">
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-white/30" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search parameter..."
-            className="w-48 bg-white/5 focus:bg-white/10 border border-white/5 focus:border-[#06b6d4]/30 rounded px-3 py-1.5 pl-9 text-xs text-white placeholder-white/30 font-mono transition focus:outline-none"
-          />
-        </div>
-
         <button
           onClick={() => router.push("/?tab=support")}
           className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-mono tracking-wider font-bold rounded flex items-center gap-1.5 shadow-[0_0_12px_#2563eb22] transition uppercase"
