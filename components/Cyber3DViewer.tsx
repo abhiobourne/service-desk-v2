@@ -107,7 +107,11 @@ function PortalGltfModel({ mode, activeGlbUrl, dynamicHotspots = [] }: { mode: s
     return v;
   }, [box]);
 
-  const scale = mode === "turbine" ? 1.0 : mode === "mri" ? 12 : 1.4;
+  const scale = React.useMemo(() => {
+    if (box.isEmpty()) return 1;
+    const maxDim = Math.max(size.x, size.y, size.z);
+    return maxDim > 0 ? 4.5 / maxDim : 1;
+  }, [box, size]);
   return (
     <group scale={scale} position={[0, -0.6, 0]} rotation={[0.4, 0.5, 0.2]}>
       <primitive object={clonedScene} />
@@ -428,7 +432,7 @@ export default function Cyber3DViewer({
   }, [diagnosticActive]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full min-h-[300px] flex items-center justify-center rounded-lg overflow-hidden border border-slate-200 dark:border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
+    <div ref={containerRef} className="relative w-full h-full min-h-[250px] flex items-center justify-center rounded-lg overflow-hidden border border-slate-200 dark:border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
       {/* Cybernetic HUD elements overlay */}
       <div className="absolute inset-0 border border-[#06b6d4]/10 pointer-events-none rounded-lg" />
       
@@ -459,7 +463,7 @@ export default function Cyber3DViewer({
         </div>
       ) : (
         <>
-          <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }} style={{ background: bgColor }}>
+          <Canvas camera={{ position: [0, 0, 7.5], fov: 45 }} style={{ background: bgColor }}>
             <color attach="background" args={[bgColor]} />
             <ambientLight intensity={0.2} />
             <pointLight position={[10, 10, 10]} intensity={1.5} />

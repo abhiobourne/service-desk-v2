@@ -26,6 +26,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAbility } from "@/providers/AbilityProvider";
+import { useTheme } from "@/providers/ThemeProvider";
 
 // Elegant neon gradients and data mocks
 const FLOW_DATA = [
@@ -214,6 +215,7 @@ export default function NextGenDashboard() {
   const router = useRouter();
   const { user, logout, loading: authLoading, isClientUser } = useAuth();
   const { can, roleName, isAdmin, isClient } = useAbility();
+  const { theme } = useTheme();
 
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab") ?? "fleet";
@@ -659,11 +661,21 @@ export default function NextGenDashboard() {
                     <span className="text-[10px] font-mono text-slate-600 dark:text-white/40 uppercase tracking-widest block">Core Temp (Median)</span>
                     <span className="text-xs font-mono font-bold text-emerald-400">4.2 °K</span>
                   </div>
-                  <div className="flex-1 min-h-[100px]">
-                    <ResponsiveContainer width="100%" height={100}>
+                  <div className="flex-1 w-full h-full min-h-[150px]">
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={TEMP_DATA}>
-                        <Tooltip contentStyle={{ background: "#0c0e16", border: "1px solid rgba(255,255,255,0.1)", fontSize: "10px" }} />
-                        <Bar dataKey="value" fill="#10b981" radius={[2, 2, 0, 0]} maxBarSize={30} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            background: theme === 'light' ? "#ffffff" : "#0c0e16", 
+                            border: theme === 'light' ? "1px solid rgba(0,0,0,0.1)" : "1px solid rgba(255,255,255,0.1)", 
+                            fontSize: "10px",
+                            color: theme === 'light' ? "#0f172a" : "#ffffff",
+                            borderRadius: "6px",
+                            boxShadow: theme === 'light' ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none"
+                          }} 
+                          itemStyle={{ color: theme === 'light' ? "#0f172a" : "#ffffff" }}
+                        />
+                        <Bar dataKey="value" fill="#10b981" radius={[2, 2, 0, 0]} maxBarSize={40} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
