@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { X, SendHorizontal, Search } from "lucide-react";
 import { io, Socket } from "socket.io-client";
+import toast from "react-hot-toast";
 import { fetchTicketCommunications } from "../../lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { getApiToken } from "../../lib/api";
@@ -16,6 +17,7 @@ interface TicketChatDrawerProps {
   ticketInfo?: {
     ticket_id: string;
     status: string;
+    createdAt?: string;
     order_id?: string;
     product_name?: string;
     reason?: string;
@@ -66,6 +68,8 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
     socketRef.current = sock;
     sock.connect();
     sock.on("connect", () => { sock.emit("ticket:subscribe", { ticketId }); });
+    sock.on("connect_error", (err) => { console.error("[TicketChatDrawer] connect_error:", err.message); });
+    sock.on("exception", (error: any) => { toast.error(error?.message || "Something went wrong"); });
     sock.on("ticket:message-created", (msg: any) => {
       setLiveMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
@@ -102,11 +106,16 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
     if (ticketInfo) {
       const welcome: ChatMsg = {
         sender: "agent",
-        text: `Ticket ${ticketInfo.ticket_id} created.\n\nOrder: ${ticketInfo.order_id ?? "—"}\nProduct: ${ticketInfo.product_name ?? "—"}\nReason: ${(ticketInfo.reason ?? "No reason provided.").replace(/<[^>]*>/g, "")}\nStatus: ${ticketInfo.status}\nAssigned: ${ticketInfo.assignee_details ? `${ticketInfo.assignee_details.firstName ?? ""} ${ticketInfo.assignee_details.lastName ?? ""}`.trim() : "Unassigned"}`,
-        createdAt: "2000-01-01T00:00:00.000Z",
+        text: `Ticket ${ticketInfo.ticket_id} has been created successfully.\n\nOrder ID: ${ticketInfo.order_id ?? "—"}\nProduct: ${ticketInfo.product_name ?? "—"}\nReason:\n${(ticketInfo.reason ?? "No reason provided.").replace(/<[^>]*>/g, "")}\nDescription:\n${(ticketInfo.description ?? "No description provided.").replace(/<[^>]*>/g, "")}\nRaised By: ${ticketInfo.user_name ?? "Unknown"}\nAssigned To: ${ticketInfo.assignee_details ? `${ticketInfo.assignee_details.firstName ?? ""} ${ticketInfo.assignee_details.lastName ?? ""}`.trim() || "Agent" : "Unassigned"}\nStatus: ${ticketInfo.status}`,
+        createdAt: ticketInfo.createdAt ?? new Date().toISOString(),
         isSystem: true, isBackendSystem: false,
       };
-      return [welcome, ...mapped].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return [welcome, ...mapped].sort((a, b) => {
+        if (!a.id && !b.id) return 0;
+        if (!a.id) return -1;
+        if (!b.id) return 1;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
     }
     return mapped.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [apiMessages, liveMessages, user?.id, ticketInfo]);
@@ -121,14 +130,27 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
 
   const sendMessage = () => {
     if (!message.trim() || isClosedOrResolved || !socketRef.current?.connected) return;
-    socketRef.current.emit("ticket:send-message", { ticketId, message: message.trim(), metadata: null });
+    const msgToSend = message.trim();
     setMessage("");
+    socketRef.current.emit(
+      "ticket:send-message",
+      { ticketId, message: msgToSend, metadata: null },
+      (ack: any) => {
+        if (ack && !ack.success) {
+          setMessage(msgToSend);
+          toast.error(ack.message || "Failed to send message");
+        }
+      },
+    );
   };
 
-  const fmt = (iso: string) => {
+  const fmtDay = (iso: string) => {
     const d = new Date(iso);
-    return `${d.toLocaleDateString("en-GB")} · ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    return `${d.toLocaleDateString("en-US", { weekday: "long" })}, ${d.toLocaleDateString("en-GB")}`;
   };
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
   if (!isOpen) return null;
 
@@ -167,27 +189,33 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
           {displayed.length === 0 && (
             <div className="text-center text-white/20 text-xs font-mono mt-12">No messages yet</div>
           )}
-          {displayed.map((msg, idx) => (
-            <React.Fragment key={`${msg.createdAt}-${idx}`}>
-              <div className="text-center text-[9px] font-mono text-white/20 my-2">{fmt(msg.createdAt)}</div>
-              <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
-                <div className={`px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${
-                  msg.isBackendSystem
-                    ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
-                    : msg.isSystem
-                    ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
-                    : msg.sender === "user"
-                    ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
-                    : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
-                }`}>
-                  {msg.isBackendSystem && (
-                    <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-amber-400/60">System</div>
-                  )}
-                  <p className="whitespace-pre-line">{msg.text}</p>
+          {displayed.map((msg, idx) => {
+            const showDay = idx === 0 || dayKey(displayed[idx - 1].createdAt) !== dayKey(msg.createdAt);
+            return (
+              <React.Fragment key={`${msg.id ?? "welcome"}-${idx}`}>
+                {showDay && (
+                  <div className="text-center text-[9px] font-mono text-white/25 my-3">{fmtDay(msg.createdAt)}</div>
+                )}
+                <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
+                  <div className={`px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${
+                    msg.isBackendSystem
+                      ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
+                      : msg.isSystem
+                      ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
+                      : msg.sender === "user"
+                      ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
+                      : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
+                  }`}>
+                    {msg.isBackendSystem && (
+                      <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-amber-400/60">System</div>
+                    )}
+                    <p className="whitespace-pre-line">{msg.text}</p>
+                    <div className="text-[9px] mt-1.5 text-right opacity-50">{fmtTime(msg.createdAt)}</div>
+                  </div>
                 </div>
-              </div>
-            </React.Fragment>
-          ))}
+              </React.Fragment>
+            );
+          })}
           <div ref={bottomRef} />
         </div>
 

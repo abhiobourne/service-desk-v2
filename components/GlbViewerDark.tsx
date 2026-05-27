@@ -5,6 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Bounds, useGLTF, useProgress, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus } from "lucide-react";
+import { useTheme } from "../providers/ThemeProvider";
 
 export interface DarkHotspot {
   id: string;
@@ -88,10 +89,12 @@ interface GlbViewerDarkProps {
 
 export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, onAddActive, isActiveAdded = false }: GlbViewerDarkProps) {
   const [showGrid, setShowGrid] = useState(false);
+  const { theme } = useTheme();
+  const bgColor = theme === "light" ? "#f8fafc" : "#06070a";
 
   if (!src) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#06070a]">
+      <div className="w-full h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: bgColor }}>
         <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
           <Box className="w-7 h-7 text-white/20" />
         </div>
@@ -104,12 +107,13 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
   }
 
   return (
-    <div className="relative w-full h-full bg-[#06070a] overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: bgColor }}>
       <Canvas
         key={src}
         camera={{ position: [0, 0, 5], fov: 45 }}
-        style={{ width: "100%", height: "100%", background: "#06070a" }}
+        style={{ width: "100%", height: "100%", background: bgColor }}
       >
+        <color attach="background" args={[bgColor]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[5, 10, 5]} intensity={1.4} castShadow />
         <directionalLight position={[-5, -5, -5]} intensity={0.3} />

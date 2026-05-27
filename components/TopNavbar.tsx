@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, ChevronDown, Search, PlusCircle } from "lucide-react";
+import { Bell, LogOut, ChevronDown, PlusCircle, Sun, Moon } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 import { useAbility } from "../providers/AbilityProvider";
+import { useTheme } from "../providers/ThemeProvider";
+import { useNotifications } from "../providers/NotificationProvider";
 
 export function TopNavbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { roleName, isClient } = useAbility();
+  const { roleName } = useAbility();
+  const { theme, toggleTheme } = useTheme();
+  const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -42,45 +45,60 @@ export function TopNavbar() {
         {/* Bell */}
         <div ref={notifRef} className="relative">
           <button
-            onClick={() => setNotifOpen(v => !v)}
+            onClick={() => { setNotifOpen(v => !v); }}
             className="relative p-2 text-white/60 hover:text-white rounded bg-white/5 border border-white/5 hover:border-white/10 transition"
             title="Notifications"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center bg-rose-500 rounded-full text-[8px] font-mono font-bold text-white px-0.5">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
 
           {notifOpen && (
             <div className="absolute top-10 right-0 w-80 bg-[#0c0e16] border border-white/10 rounded-xl shadow-2xl z-[9999] overflow-hidden">
               <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold text-white/50 uppercase tracking-widest">Notifications</span>
-                <span className="text-[9px] font-mono text-white/25">4 unread</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-[9px] font-mono text-cyan-400/70 hover:text-cyan-400 transition"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
               <div className="divide-y divide-white/5 max-h-80 overflow-y-auto">
-                {[
-                  { type: "critical", title: "Pressure Alert — Berlin Central", msg: "Helium leak detected. Pressure dropped below threshold.", time: "2m ago" },
-                  { type: "warning",  title: "Filter Replacement Due",           msg: "Sydney Care Centre — overdue by 3 days.",               time: "18m ago" },
-                  { type: "info",     title: "Maintenance Window",               msg: "Mumbai Facility scheduled in 2 hours.",                 time: "1h ago" },
-                  { type: "success",  title: "Ticket #TKT-042 Resolved",         msg: "Tokyo Hub #12 scan completed successfully.",            time: "3h ago" },
-                ].map((n, i) => {
-                  const dot = n.type === "critical" ? "bg-rose-500" : n.type === "warning" ? "bg-amber-500" : n.type === "success" ? "bg-emerald-500" : "bg-blue-400";
-                  const title = n.type === "critical" ? "text-rose-400" : n.type === "warning" ? "text-amber-400" : n.type === "success" ? "text-emerald-400" : "text-blue-400";
-                  return (
-                    <div key={i} className="px-4 py-3 hover:bg-white/3 transition cursor-pointer">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-[10px] font-mono text-white/20">
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.slice(0, 20).map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => markRead(n.id)}
+                      className={`px-4 py-3 hover:bg-white/3 transition cursor-pointer ${!n.isRead ? "bg-white/[0.02]" : ""}`}
+                    >
                       <div className="flex items-start gap-2.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${!n.isRead ? "bg-violet-400" : "bg-white/15"}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] font-mono font-semibold leading-snug ${title}`}>{n.title}</p>
-                          <p className="text-[10px] font-mono text-white/40 mt-0.5 leading-snug">{n.msg}</p>
-                          <p className="text-[9px] font-mono text-white/20 mt-1">{n.time}</p>
+                          <p className={`text-[11px] font-mono font-semibold leading-snug ${!n.isRead ? "text-violet-300" : "text-white/40"}`}>
+                            {n.title}
+                          </p>
+                          <p className="text-[10px] font-mono text-white/40 mt-0.5 leading-snug truncate">{n.message}</p>
+                          <p className="text-[9px] font-mono text-white/20 mt-1">
+                            {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {" · "}
+                            {new Date(n.createdAt).toLocaleDateString("en-GB")}
+                          </p>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-              <div className="px-4 py-2 border-t border-white/5">
-                <button className="w-full text-[10px] font-mono text-white/30 hover:text-white/60 transition text-center">View all notifications</button>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -109,6 +127,25 @@ export function TopNavbar() {
                   <p className="text-xs font-mono font-semibold text-white truncate">{user.firstName} {user.lastName}</p>
                   <p className="text-[9px] font-mono text-white/35 truncate mt-0.5">{(user as any).email ?? ""}</p>
                 </div>
+                {/* Theme toggle */}
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 text-xs font-mono text-white/60 hover:bg-white/5 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {theme === "dark"
+                      ? <Sun className="h-3.5 w-3.5 text-amber-400" />
+                      : <Moon className="h-3.5 w-3.5 text-slate-500" />}
+                    <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                  </div>
+                  {/* Pill toggle */}
+                  <div className={`relative w-8 h-4 rounded-full transition-colors ${theme === "light" ? "bg-blue-500" : "bg-white/15"}`}>
+                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${theme === "light" ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </div>
+                </button>
+
+                <div className="border-t border-white/5" />
+
                 <button
                   onClick={async () => { setProfileOpen(false); await logout(); router.push("/login"); }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-red-400 hover:bg-red-500/10 transition"

@@ -74,6 +74,123 @@ body {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
+/* ============================================================
+   LIGHT MODE OVERRIDES
+   Applied when <html class="light"> is set by ThemeProvider
+   ============================================================ */
+
+html.light {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-bg: #ffffff;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* ── Hardcoded dark background colours ── */
+html.light .bg-\[\#06070a\]       { background-color: #f8fafc !important; }
+html.light .bg-\[\#07090e\]       { background-color: #f8fafc !important; }
+html.light .bg-\[\#090b10\]       { background-color: #f1f5f9 !important; }
+html.light .bg-\[\#0b0e14\]       { background-color: #f1f5f9 !important; }
+html.light .bg-\[\#0c0e16\]       { background-color: #ffffff !important; }
+html.light .bg-\[\#08090e\]       { background-color: #f8fafc !important; }
+html.light .bg-\[\#121620\]       { background-color: #e2e8f0 !important; }
+html.light .bg-\[\#111722\]       { background-color: #ffffff !important; }
+html.light .bg-\[\#0f111a\]       { background-color: #f1f5f9 !important; }
+html.light .bg-\[\#0d0f19\]       { background-color: #f1f5f9 !important; }
+html.light .bg-\[\#1e1e2e\]       { background-color: #f1f5f9 !important; }
+
+/* ── bg-black and opacity variants (used for HUD overlays, canvas controls) ── */
+html.light .bg-black             { background-color: #f1f5f9 !important; }
+html.light .bg-black\/50         { background-color: rgba(241,245,249,0.90) !important; }
+html.light .bg-black\/60         { background-color: rgba(241,245,249,0.92) !important; }
+html.light .bg-black\/70         { background-color: rgba(241,245,249,0.94) !important; }
+html.light .bg-black\/80         { background-color: rgba(241,245,249,0.96) !important; }
+
+/* ── Opacity variants of dark hex backgrounds ── */
+html.light .bg-\[\#06070a\]\/80  { background-color: rgba(248,250,252,0.88) !important; }
+html.light .bg-\[\#06070a\]\/88  { background-color: rgba(248,250,252,0.92) !important; }
+html.light .bg-\[\#06070a\]\/90  { background-color: rgba(248,250,252,0.94) !important; }
+html.light .bg-\[\#090b10\]\/60  { background-color: rgba(241,245,249,0.70) !important; }
+html.light .bg-\[\#090b10\]\/95  { background-color: rgba(241,245,249,0.97) !important; }
+html.light .bg-\[\#121620\]\/80  { background-color: rgba(226,232,240,0.88) !important; }
+
+/* ── Semi-transparent bg-white/X → darken instead of lighten ── */
+html.light .bg-white\/2          { background-color: rgba(0,0,0,0.02) !important; }
+html.light .bg-white\/3          { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/5          { background-color: rgba(0,0,0,0.04) !important; }
+html.light .bg-white\/8          { background-color: rgba(0,0,0,0.06) !important; }
+html.light .bg-white\/10         { background-color: rgba(0,0,0,0.08) !important; }
+html.light .bg-white\/\[0\.04\]  { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/\[0\.08\]  { background-color: rgba(0,0,0,0.05) !important; }
+html.light .bg-white\/\[0\.03\]  { background-color: rgba(0,0,0,0.02) !important; }
+
+/* ── Hover variants ── */
+html.light .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.05) !important; }
+html.light .hover\:bg-white\/5        { } /* no-op, handled by :hover above */
+
+/* ── Text white/opacity → slate equivalents ── */
+html.light .text-white         { color: #0f172a !important; }
+html.light .text-white\/70     { color: rgba(15,23,42,0.70) !important; }
+html.light .text-white\/65     { color: rgba(15,23,42,0.65) !important; }
+html.light .text-white\/60     { color: rgba(15,23,42,0.60) !important; }
+html.light .text-white\/55     { color: rgba(15,23,42,0.55) !important; }
+html.light .text-white\/50     { color: rgba(15,23,42,0.50) !important; }
+html.light .text-white\/45     { color: rgba(15,23,42,0.45) !important; }
+html.light .text-white\/40     { color: rgba(15,23,42,0.40) !important; }
+html.light .text-white\/35     { color: rgba(15,23,42,0.35) !important; }
+html.light .text-white\/30     { color: rgba(15,23,42,0.30) !important; }
+html.light .text-white\/25     { color: rgba(15,23,42,0.25) !important; }
+html.light .text-white\/20     { color: rgba(15,23,42,0.20) !important; }
+html.light .text-white\/15     { color: rgba(15,23,42,0.15) !important; }
+html.light .text-white\/10     { color: rgba(15,23,42,0.10) !important; }
+html.light .text-white\/8      { color: rgba(15,23,42,0.08) !important; }
+
+/* ── Border white/opacity → dark equivalents ── */
+html.light .border-white\/5    { border-color: rgba(0,0,0,0.07) !important; }
+html.light .border-white\/8    { border-color: rgba(0,0,0,0.09) !important; }
+html.light .border-white\/10   { border-color: rgba(0,0,0,0.12) !important; }
+html.light .border-white\/15   { border-color: rgba(0,0,0,0.14) !important; }
+html.light .border-white\/20   { border-color: rgba(0,0,0,0.16) !important; }
+html.light .border-white\/25   { border-color: rgba(0,0,0,0.18) !important; }
+
+/* ── Divide white/opacity (dividers between list items) ── */
+html.light .divide-white\/5 > * + * { border-color: rgba(0,0,0,0.07) !important; }
+
+/* ── Inputs, selects, textareas ── */
+html.light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: rgba(15,23,42,0.30) !important;
+}
+
+html.light option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+/* ── Scrollbars ── */
+html.light ::-webkit-scrollbar-track { background: #f1f5f9; }
+html.light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Glass panel ── */
+html.light .glass-panel {
+  background: rgba(255,255,255,0.75);
+  border-color: rgba(0,0,0,0.06);
+}
+
 /* Glassmorphism elements */
 .glass-panel {
   background: rgba(12, 14, 22, 0.7);

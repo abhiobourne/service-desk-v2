@@ -881,17 +881,12 @@ export async function fetchDesignTreeById(treeId: string): Promise<DesignTreeNod
   } catch { return null; }
 }
 
-export async function fetchTicketCommunications(ticketId?: string): Promise<any[]> {
+export async function fetchTicketCommunications(ticketId: string): Promise<any[]> {
   try {
-    const url = ticketId
-      ? `${API_BASE_URL}/ticket-communication?ticket_id=${ticketId}`
-      : `${API_BASE_URL}/ticket-communication`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/ticket-communication/ticket/${ticketId}`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const all: any[] = data.items ?? [];
-    if (ticketId) return all.filter((m: any) => m.ticket_id === ticketId);
-    return all;
+    return data.data ?? [];
   } catch { return []; }
 }
 

@@ -417,7 +417,7 @@ export default function TroubleshootingPage() {
             setExpanded(toExpand);
             setNavPath(chain);
 
-            // Auto-load target's GLB if it exists, otherwise fall back to first GLB
+            // Auto-load target's GLB, or fall back to first GLB in tree
             const targetGlb = target.drawing_files.find(f => isGlb(f.file_name));
             if (targetGlb) {
               setActiveGlbSrc(`${BASE_URL}${targetGlb.url}`);
@@ -432,6 +432,22 @@ export default function TroubleshootingPage() {
                 }
               }
             }
+
+            // Auto-load first document: prefer target node's docs, then any node
+            const targetDoc = [...target.drawing_files, ...target.kb_files].find(f => !isGlb(f.file_name));
+            if (targetDoc) {
+              setActiveDocSrc(`${BASE_URL}${targetDoc.url}`);
+              setActiveDocName(targetDoc.file_name);
+            } else {
+              for (const node of res.data) {
+                const docFile = [...node.drawing_files, ...node.kb_files].find(f => !isGlb(f.file_name));
+                if (docFile) {
+                  setActiveDocSrc(`${BASE_URL}${docFile.url}`);
+                  setActiveDocName(docFile.file_name);
+                  break;
+                }
+              }
+            }
             return;
           }
         }
@@ -439,6 +455,7 @@ export default function TroubleshootingPage() {
         // Auto-expand root assemblies (level 0)
         const roots = res.data.filter(n => n.parent_design_uuid === null);
         setExpanded(new Set(["product-root", ...roots.map(r => r.design_version_id || r.design_uuid)]));
+
         // Auto-load first GLB found
         for (const node of res.data) {
           const glbFile = node.drawing_files.find(f => isGlb(f.file_name));
@@ -446,6 +463,16 @@ export default function TroubleshootingPage() {
             setActiveGlbSrc(`${BASE_URL}${glbFile.url}`);
             setActiveGlbId(glbFile.id);
             setNavPath([node]);
+            break;
+          }
+        }
+
+        // Auto-load first document file found (PDF, doc, image, etc.)
+        for (const node of res.data) {
+          const docFile = [...node.drawing_files, ...node.kb_files].find(f => !isGlb(f.file_name));
+          if (docFile) {
+            setActiveDocSrc(`${BASE_URL}${docFile.url}`);
+            setActiveDocName(docFile.file_name);
             break;
           }
         }

@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Loader2, Maximize2, RotateCcw, Activity } from "lucide-react";
+import { useTheme } from "../providers/ThemeProvider";
 
 /**
  * Standard Error Boundary for robust GLB loading fallbacks.
@@ -383,6 +384,8 @@ export default function Cyber3DViewer({
   const [loading, setLoading] = useState(true);
   const [calibrateScale, setCalibrateScale] = useState(1);
   const [diaProgress, setDiaProgress] = useState(0.5);
+  const { theme } = useTheme();
+  const bgColor = theme === "light" ? "#f1f5f9" : "#090b10";
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 600);
@@ -421,7 +424,7 @@ export default function Cyber3DViewer({
   }, [diagnosticActive]);
 
   return (
-    <div className="relative w-full h-full min-h-[300px] flex items-center justify-center bg-[#090b10] rounded-lg overflow-hidden border border-white/5 group shadow-inner">
+    <div className="relative w-full h-full min-h-[300px] flex items-center justify-center rounded-lg overflow-hidden border border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
       {/* Cybernetic HUD elements overlay */}
       <div className="absolute inset-0 border border-[#06b6d4]/10 pointer-events-none rounded-lg" />
       
@@ -452,7 +455,8 @@ export default function Cyber3DViewer({
         </div>
       ) : (
         <>
-          <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }}>
+          <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }} style={{ background: bgColor }}>
+            <color attach="background" args={[bgColor]} />
             <ambientLight intensity={0.2} />
             <pointLight position={[10, 10, 10]} intensity={1.5} />
             <pointLight position={[-10, -10, -10]} intensity={0.5} />
