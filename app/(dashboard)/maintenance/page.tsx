@@ -144,7 +144,7 @@ export default function MaintenancePage() {
               pct: Math.round((counts.inProgress / MOCK_RECORDS.length) * 100),
             },
             {
-              label: "Upcoming (30d)",
+              label: "Upcoming ",
               value: counts.upcoming,
               sub: "Scheduled in next 30 days",
               icon: <Clock className="w-4 h-4 text-blue-500" />,
@@ -154,7 +154,7 @@ export default function MaintenancePage() {
               pct: Math.round((counts.upcoming / MOCK_RECORDS.length) * 100),
             },
             {
-              label: "Completed (30d)",
+              label: "Completed",
               value: counts.completed,
               sub: "Completed on schedule",
               icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,

@@ -724,7 +724,7 @@ export default function TroubleshootingPage() {
     setChatNeedsTicket(false);
     setChatResolved(false);
     setChatWaitingForResolution(false);
-    const intro = `AI assistant for ${product?.product_name ?? "this product"}${activeGlbNode ? ` / ${activeGlbNode.design_name}` : ""}.`;
+    const intro = `Self  Troubleshoot AI assistant for ${product?.product_name ?? "this product"}${activeGlbNode ? ` / ${activeGlbNode.design_name}` : ""}.`;
     const first = faqs[0]
       ? `${intro}\n\n${stripHtml(faqs[0].question)}`
       : `${intro}\n\nThere are no guided checks for this component. Raise a ticket?`;
@@ -1197,7 +1197,7 @@ export default function TroubleshootingPage() {
                     }`}
                 >
                   <MessageCircle className="h-3 w-3" />
-                  AI Assistant
+                  AI Troubleshoot
                 </button>
                 {rightPanel === "3d" && hotspots.length > 0 && (
                   <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>

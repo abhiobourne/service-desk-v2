@@ -238,11 +238,18 @@ export function DesignTreeSelect({
       )}
 
       {/* Trigger */}
-      <button
-        type="button"
-        disabled={disabled || loading}
+      <div
+        role="button"
+        tabIndex={disabled || loading ? -1 : 0}
+        aria-disabled={disabled || loading}
         onClick={() => !disabled && !loading && setOpen(o => !o)}
-        className={`w-full min-h-[38px] flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs font-mono transition
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!disabled && !loading) setOpen(o => !o);
+          }
+        }}
+        className={`w-full min-h-[38px] flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs font-mono transition text-left
           bg-white dark:bg-white/5
           border-slate-200 dark:border-white/10
           hover:border-slate-300 dark:hover:border-white/20
@@ -285,7 +292,7 @@ export function DesignTreeSelect({
           )}
           <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
-      </button>
+      </div>
 
       {/* Dropdown */}
       {open && (
