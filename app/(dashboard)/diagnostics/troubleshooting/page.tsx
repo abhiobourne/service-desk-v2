@@ -17,6 +17,7 @@ import { GlbViewerDark, type DarkHotspot } from "@/components/GlbViewerDark";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
 import { fuzzyAny } from "@/lib/search";
 import { Panel, Group, Separator } from "react-resizable-panels";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
@@ -366,7 +367,8 @@ export default function TroubleshootingPage() {
         if (found) { setSelectedProductId(found.id); return; }
       }
 
-      // No URL context — leave unselected; user must navigate from an order
+      // No URL context — auto-select first product
+      if (list.length > 0) setSelectedProductId(list[0].id);
     });
 
     setOrdersLoading(true);
@@ -376,6 +378,8 @@ export default function TroubleshootingPage() {
       if (queryOrderId) {
         const matched = list.find((o: any) => o.id === queryOrderId || o.order_id === queryOrderId);
         if (matched) setSelectedOrderCtx(matched);
+      } else if (list.length > 0) {
+        setSelectedOrderCtx(list[0]);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -399,6 +403,11 @@ export default function TroubleshootingPage() {
       if (res.success && res.data.length > 0) {
         setTreeNodes(res.data);
 
+        // If the product itself has a GLB, use it as the default viewer src
+        if (res.product_glb && !activeGlbSrc) {
+          setActiveGlbSrc(`${BASE_URL}${res.product_glb}`);
+        }
+
         // Auto-expand and navigate to ?part= if provided
         const partParam = searchParams.get("part") ?? "";
         if (partParam) {
@@ -418,19 +427,25 @@ export default function TroubleshootingPage() {
             setExpanded(toExpand);
             setNavPath(chain);
 
-            // Auto-load target's GLB, or fall back to first GLB in tree
+            // Auto-load target's GLB, or fall back to product GLB, then first GLB in tree
             const targetGlb = target.drawing_files.find(f => isGlb(f.file_name));
             if (targetGlb) {
               setActiveGlbSrc(`${BASE_URL}${targetGlb.url}`);
               setActiveGlbId(targetGlb.id);
             } else {
+              // Try design nodes first, then fall back to product_glb
+              let foundGlb = false;
               for (const node of res.data) {
                 const glbFile = node.drawing_files.find(f => isGlb(f.file_name));
                 if (glbFile) {
                   setActiveGlbSrc(`${BASE_URL}${glbFile.url}`);
                   setActiveGlbId(glbFile.id);
+                  foundGlb = true;
                   break;
                 }
+              }
+              if (!foundGlb && res.product_glb) {
+                setActiveGlbSrc(`${BASE_URL}${res.product_glb}`);
               }
             }
 
@@ -457,14 +472,20 @@ export default function TroubleshootingPage() {
         const roots = res.data.filter(n => n.parent_design_uuid === null);
         setExpanded(new Set(["product-root", ...roots.map(r => r.design_version_id || r.design_uuid)]));
 
-        // Auto-load first GLB found
-        for (const node of res.data) {
-          const glbFile = node.drawing_files.find(f => isGlb(f.file_name));
-          if (glbFile) {
-            setActiveGlbSrc(`${BASE_URL}${glbFile.url}`);
-            setActiveGlbId(glbFile.id);
-            setNavPath([node]);
-            break;
+        // Auto-load product GLB first, fall back to first design node GLB
+        if (res.product_glb) {
+          setActiveGlbSrc(`${BASE_URL}${res.product_glb}`);
+          setActiveGlbId(null);
+          setNavPath([]);
+        } else {
+          for (const node of res.data) {
+            const glbFile = node.drawing_files.find(f => isGlb(f.file_name));
+            if (glbFile) {
+              setActiveGlbSrc(`${BASE_URL}${glbFile.url}`);
+              setActiveGlbId(glbFile.id);
+              setNavPath([node]);
+              break;
+            }
           }
         }
 
@@ -584,13 +605,18 @@ export default function TroubleshootingPage() {
     router.replace(`?${sp.toString()}`, { scroll: false });
   }, [activeGlbNode, searchParams, router, loadingTree]);
 
-  // Hotspots: children of active GLB node that have GLBs
+  // Hotspots: children of active GLB node that have GLBs (or top-level nodes if at product root)
   const hotspots = useMemo<DarkHotspot[]>(() => {
-    if (!activeGlbNode) return [];
-    const children = treeNodes.filter(
-      n => n.parent_design_uuid === activeGlbNode.design_uuid &&
-        n.parent_version_id === activeGlbNode.design_version_id,
-    );
+    let children: TroubleshootingDesignNode[] = [];
+    if (!activeGlbNode) {
+      // At Product Root
+      children = treeNodes.filter(n => n.parent_design_uuid === null);
+    } else {
+      children = treeNodes.filter(
+        n => n.parent_design_uuid === activeGlbNode.design_uuid &&
+          n.parent_version_id === activeGlbNode.design_version_id,
+      );
+    }
     return children.reduce<DarkHotspot[]>((acc, child) => {
       const childGlb = child.drawing_files.find(f => isGlb(f.file_name));
       if (!childGlb) return acc;
@@ -781,118 +807,102 @@ export default function TroubleshootingPage() {
   return (
     <div className={`${isFullView ? "fixed inset-0 z-50" : "h-screen"} flex flex-col overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white`}>
 
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <header className="h-11 shrink-0 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#090b10] flex items-center px-3 gap-3 overflow-x-auto">
-        {/* Back */}
-        <button
-          onClick={() => isFullView ? window.close() : router.push("/")}
-          className="shrink-0 flex items-center gap-1.5 text-slate-600 dark:text-white/40 hover:text-slate-900 dark:text-white text-xs font-mono transition px-2 py-1 rounded hover:bg-slate-100 dark:bg-white/5"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          {isFullView ? "Close View" : "Dashboard"}
-        </button>
-        <span className="text-slate-600 dark:text-white/10 shrink-0">|</span>
-        {orderRef && (
-          <>
-            <span className="shrink-0 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded uppercase">
-              Order: {orderRef}
-            </span>
-            <span className="text-slate-600 dark:text-white/10 shrink-0">|</span>
-          </>
-        )}
+      {/* ─── Header (hidden in full-view mode) ─────────────────────── */}
+      {!isFullView && (
+        <PageHeader
+          breadcrumbs={[
+            { label: "Dashboard", href: "/" },
+            { label: "Diagnostics", href: "/diagnostics" },
+            { label: "Troubleshooting" },
+          ]}
+          backHref="/"
+          icon={<BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+          iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
+          title="Troubleshooting"
+          subtitle="Navigate product components and documentation"
+          right={
+            <button
+              type="button"
+              disabled={!selectedProductId}
+              onClick={() => {
+                const qs = new URLSearchParams({ productId: selectedProductId, full: "1" });
+                if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
+                const ctxClientId = selectedOrderCtx?.client_id ?? queryClientId;
+                const ctxOrderId = selectedOrderCtx?.id ?? queryOrderId;
+                if (ctxClientId) qs.set("clientId", ctxClientId);
+                if (ctxOrderId) qs.set("orderId", ctxOrderId);
+                const pRef = encodeURIComponent(orderRef || "VIEW");
+                const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
+                window.open(`/diagnostics/troubleshooting/${pRef}/${pName}?${qs.toString()}`, "_blank");
+              }}
+              className="flex items-center gap-1.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:border-violet-500/30 hover:text-slate-900 dark:text-white disabled:opacity-30"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Full View
+            </button>
+          }
+        />
+      )}
 
-        {/* Breadcrumb nav path */}
-        {navPath.map((node, i) => {
-          const isCurrent = i === navPath.length - 1;
-          return (
-            <React.Fragment key={i}>
-              <ChevronRight className="h-3 w-3 text-slate-600 dark:text-white/15 shrink-0" />
-              <span
-                className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded transition ${isCurrent
-                    ? "bg-slate-100 dark:bg-white/8 text-slate-600 dark:text-white/70 cursor-default"
-                    : "text-slate-600 dark:text-white/40 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-white/5 cursor-pointer"
-                  }`}
-                onClick={() => { if (!isCurrent) setNavPath(p => p.slice(0, i + 1)); }}
-              >
-                {node.design_name}
-                {node.design_type && <span className="text-slate-600 dark:text-white/25 ml-1">({node.design_type})</span>}
+      {/* ─── Secondary nav bar: order context + tree path + raise ticket ── */}
+      {(isFullView || orderRef || navPath.length > 0 || selectedParts.size > 0) && (
+        <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#090b10] flex items-center px-4 gap-2 overflow-x-auto">
+          {/* Go Back button in full-view mode */}
+          {isFullView && (
+            <button
+              onClick={() => router.push("/diagnostics/troubleshooting")}
+              className="shrink-0 flex items-center gap-1.5 text-slate-600 dark:text-white/50 hover:text-slate-900 dark:text-white text-[11px] font-mono transition px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Go Back
+            </button>
+          )}
+          {isFullView && (orderRef || navPath.length > 0) && (
+            <span className="text-slate-300 dark:text-white/10 shrink-0">|</span>
+          )}
+          {orderRef && orderRef !== "VIEW" && (
+            <>
+              <span className="shrink-0 text-[10px] font-mono text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 px-2 py-0.5 rounded uppercase">
+                Order: {orderRef}
               </span>
-            </React.Fragment>
-          );
-        })}
-
-        {/* Order + Product selectors + Raise Ticket */}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          {/* Order selector */}
-          <select
-            value={selectedOrderCtx?.id ?? ""}
-            onChange={e => {
-              const order = allOrders.find((o: any) => o.id === e.target.value) ?? null;
-              setSelectedOrderCtx(order);
-            }}
-            className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-cyan-500/50 max-w-[180px]"
-          >
-            <option value="">{ordersLoading ? "Loading…" : "— Select order —"}</option>
-            {allOrders.map((o: any) => (
-              <option key={o.id} value={o.id}>
-                {o.order_id}{o.client_name ? ` · ${o.client_name}` : ""}
-              </option>
-            ))}
-          </select>
-          <span className="text-slate-300 dark:text-white/10 shrink-0\">|</span>
-
-          {/* Product selector */}
-          <select
-            value={selectedProductId}
-            onChange={e => setSelectedProductId(e.target.value)}
-            className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-mono px-2 py-1 rounded focus:outline-none focus:border-violet-500/50 max-w-[220px]"
-          >
-            <option value="">{productsLoading ? "Loading…" : "— Select product —"}</option>
-            {products.map(p => (
-              <option key={p.id} value={p.id}>{p.product_name} ({p.product_id})</option>
-            ))}
-          </select>
-
-          {/* Raise Ticket — shows when parts are selected */}
+              {navPath.length > 0 && <span className="text-slate-300 dark:text-white/10 shrink-0">|</span>}
+            </>
+          )}
+          {navPath.map((node, i) => {
+            const isCurrent = i === navPath.length - 1;
+            return (
+              <React.Fragment key={i}>
+                {i > 0 && <ChevronRight className="h-3 w-3 text-slate-300 dark:text-white/15 shrink-0" />}
+                <span
+                  className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded transition ${isCurrent
+                    ? "bg-slate-100 dark:bg-white/8 text-slate-600 dark:text-white/70 cursor-default"
+                    : "text-slate-500 dark:text-white/40 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+                  }`}
+                  onClick={() => { if (!isCurrent) setNavPath(p => p.slice(0, i + 1)); }}
+                >
+                  {node.design_name}
+                  {node.design_type && <span className="text-slate-400 dark:text-white/25 ml-1">({node.design_type})</span>}
+                </span>
+              </React.Fragment>
+            );
+          })}
           {selectedParts.size > 0 && (
-            <div className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/25 rounded px-2 py-1">
-              <span className="text-[10px] font-mono text-violet-300">{selectedParts.size} part{selectedParts.size > 1 ? "s" : ""}</span>
-              <button onClick={() => setSelectedParts(new Set())} className="text-violet-400/50 hover:text-violet-300 transition" title="Clear">
+            <div className="ml-auto flex items-center gap-1.5 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/25 rounded px-2 py-1 shrink-0">
+              <span className="text-[10px] font-mono text-violet-600 dark:text-violet-300">{selectedParts.size} part{selectedParts.size > 1 ? "s" : ""}</span>
+              <button onClick={() => setSelectedParts(new Set())} className="text-violet-400/50 hover:text-violet-500 dark:hover:text-violet-300 transition" title="Clear">
                 <X className="h-3 w-3" />
               </button>
               <button
                 onClick={() => setAddTicketOpen(true)}
-                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-slate-900 dark:text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
+                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
               >
                 <Ticket className="h-3 w-3" />
                 Raise Ticket
               </button>
             </div>
           )}
-
-          <button
-            type="button"
-            disabled={!selectedProductId}
-            onClick={() => {
-              const qs = new URLSearchParams({ productId: selectedProductId, full: "1" });
-              if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
-              const ctxClientId = selectedOrderCtx?.client_id ?? queryClientId;
-              const ctxOrderId = selectedOrderCtx?.id ?? queryOrderId;
-              if (ctxClientId) qs.set("clientId", ctxClientId);
-              if (ctxOrderId) qs.set("orderId", ctxOrderId);
-
-              const pRef = encodeURIComponent(orderRef || "VIEW");
-              const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
-
-              window.open(`/troubleshooting/${pRef}/${pName}?${qs.toString()}`, "_blank");
-            }}
-            className="flex items-center gap-1.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:border-violet-500/30 hover:text-slate-900 dark:text-white disabled:opacity-30"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Full View
-          </button>
         </div>
-      </header>
+      )}
 
       {/* ─── Body ───────────────────────────────────────────────────── */}
       {!hasContext ? (

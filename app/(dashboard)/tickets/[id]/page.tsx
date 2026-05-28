@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  ArrowLeft, UserPlus, ClipboardList, Building2, User,
+  UserPlus, ClipboardList, Building2, User, Ticket,
   ShoppingCart, Package, FileText, FileCode, FileType, File as FileIcon,
   Eye, Download, Search, Image as ImageIcon, Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -19,6 +19,7 @@ import { HappyCodeModal } from "@/components/tickets/HappyCodeModal";
 import { AssignTechnicianDrawer } from "@/components/tickets/AssignTechnicianDrawer";
 import { InlineTicketChat } from "@/components/tickets/InlineTicketChat";
 import { InspectionModal } from "@/components/tickets/InspectionModal";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 function getFileTypeInfo(url: string) {
   const ext = url.split(".").pop()?.toLowerCase() ?? "";
@@ -91,7 +92,7 @@ function PartsTable({ parts }: { parts: NonNullable<OrderTicket["parts"]> }) {
                     <td className="px-3 py-2.5">
                       {p.troubleshooting_url
                         ? <a
-                            href={p.troubleshooting_url.replace(/https?:\/\/(localhost|127\.0\.0\.1):\d+/, typeof window !== "undefined" ? window.location.origin : "")}
+                            href={p.troubleshooting_url.replace(/https?:\/\/(localhost|127\.0\.0\.1):\d+/, typeof window !== "undefined" ? window.location.origin : "").replace("/troubleshooting/", "/diagnostics/troubleshooting/")}
                             target="_blank" rel="noreferrer"
                             className="text-[10px] font-mono text-violet-400 hover:text-violet-300"
                           >View →</a>
@@ -226,47 +227,65 @@ export default function TicketDetailPage() {
 
   const assigneeName = ticket.assignee_details ? `${ticket.assignee_details.firstName ?? ""} ${ticket.assignee_details.lastName ?? ""}`.trim() || "Assigned" : null;
 
+  const TICKET_STATUS_BADGE: Record<string, { bg: string; text: string; label: string }> = {
+    open:        { bg: "bg-blue-500/15",    text: "text-blue-400",    label: "Open" },
+    resolved:    { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "Resolved" },
+    in_progress: { bg: "bg-amber-500/15",   text: "text-amber-400",   label: "In Progress" },
+    closed:      { bg: "bg-slate-500/15",   text: "text-slate-400",   label: "Closed" },
+  };
+  const sb = TICKET_STATUS_BADGE[ticket.status] ?? { bg: "bg-white/10", text: "text-white/50", label: ticket.status };
+
   return (
     <div className="flex h-full overflow-hidden bg-[#06070a] text-white">
       {/* Left: ticket details */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-5">
-
-          {/* Header */}
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="flex items-center gap-3 text-xl font-bold text-white">
-                <button onClick={() => router.push("/tickets")} className="text-violet-400 hover:text-violet-300 transition">
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                Ticket{" "}
-                <code className="text-lg font-mono text-violet-400">{ticket.ticket_id}</code>
-              </h1>
-              <p className="text-xs font-mono text-white/30 mt-1 ml-8">Raised on {fmtDate(ticket.createdAt)}</p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* ── Header ── */}
+        <PageHeader
+          breadcrumbs={[
+            { label: "Dashboard", href: "/" },
+            { label: "Tickets", href: "/tickets" },
+            { label: ticket.ticket_id },
+          ]}
+          backHref="/tickets"
+          icon={<Ticket className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+          iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
+          title={
+            <>
+              <span className="font-mono">{ticket.ticket_id}</span>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide ${sb.bg} ${sb.text}`}>
+                {sb.label}
+              </span>
+            </>
+          }
+          subtitle={`Raised on ${fmtDate(ticket.createdAt)}`}
+          right={
+            <>
               {can("assign", "tickets") && (
                 <button onClick={() => setInspectOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-white/10 rounded-full text-white/40 hover:bg-white/5 hover:text-white transition">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-slate-200 dark:border-white/10 rounded-full text-slate-500 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition">
                   <ClipboardList className="w-3.5 h-3.5" />Inspections
                 </button>
               )}
               {can("assign", "tickets") ? (
                 <button onClick={() => setAssignOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-violet-500/30 rounded-full text-violet-400 hover:bg-violet-500/10 transition">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-violet-500/30 rounded-full text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition">
                   <UserPlus className="w-3.5 h-3.5" />
                   {assigneeName ?? "Assign Technician"}
                 </button>
               ) : (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-white/8 rounded-full text-white/30 bg-white/3">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-slate-200 dark:border-white/8 rounded-full text-slate-400 dark:text-white/30 bg-slate-50 dark:bg-white/3">
                   <UserPlus className="w-3.5 h-3.5" />
                   {assigneeName ?? "Unassigned"}
                 </span>
               )}
               <TicketStatusDropdown value={ticket.status} onChange={handleStatusChange} disabled={updatingStatus || isClient} />
-            </div>
-          </div>
+            </>
+          }
+        />
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-6 py-6 space-y-5">
 
           {/* 2-col body */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
@@ -359,6 +378,8 @@ export default function TicketDetailPage() {
           {/* Faulty Parts */}
           <PartsTable parts={ticket.parts ?? []} />
         </div>
+        </div>
+        </div>
 
         {/* Attachment preview modal */}
         {previewUrl && (
@@ -380,7 +401,6 @@ export default function TicketDetailPage() {
             </div>
           </div>
         )}
-      </div>
 
       {/* Right: inline chat */}
       <div className="w-[360px] shrink-0 border-l border-white/5 overflow-hidden flex flex-col">

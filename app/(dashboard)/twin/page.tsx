@@ -188,7 +188,7 @@ export default function DigitalTwinPage() {
 
             {/* Quick links */}
             <div className="p-3 border-t border-white/8 flex gap-2 shrink-0">
-              <button onClick={() => router.push("/troubleshooting")}
+              <button onClick={() => router.push("/diagnostics/troubleshooting")}
                 className="flex-1 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[10px] font-mono uppercase rounded hover:bg-violet-600/30 transition">
                 Troubleshoot
               </button>

@@ -1,5 +1,5 @@
 /**
- * API Client — Industrial OS Frontend V2
+ * API Client — Quarkcity Medtech Service Desk Frontend V2
  * Connects to NestJS backend. All auth uses JWT from AuthProvider.
  * No auto-login: token must be set via loginEmail() or session hydration.
  */
@@ -823,7 +823,7 @@ export async function createOrderTicket(formData: FormData): Promise<OrderTicket
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    return data.data ?? data ?? null;
+    return data.items ?? data.data ?? data ?? null;
   } catch { return null; }
 }
 

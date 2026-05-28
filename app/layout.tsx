@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Industrial OS - Next-Gen Operations Cockpit",
+  title: "Quarkcity Medtech Service Desk",
   description: "Enterprise Digital Twin and Support Management Cockpit",
 };
 

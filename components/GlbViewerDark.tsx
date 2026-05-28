@@ -1,10 +1,13 @@
 "use client";
 
-import React, { Suspense, useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, Bounds, useGLTF, useProgress, Html } from "@react-three/drei";
+import React, { Suspense, useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, Environment, Bounds, useGLTF, useAnimations, useProgress, Html } from "@react-three/drei";
 import * as THREE from "three";
-import { ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus } from "lucide-react";
+import {
+  ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus,
+  Maximize2, Minimize2, RotateCcw, Layers,
+} from "lucide-react";
 import { useTheme } from "../providers/ThemeProvider";
 
 export interface DarkHotspot {
@@ -15,11 +18,23 @@ export interface DarkHotspot {
   onActivate: () => void;
 }
 
-function Model({ src, hotspots }: { src: string; hotspots: DarkHotspot[] }) {
-  const { scene } = useGLTF(src);
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+function Model({
+  src,
+  hotspots,
+  wireframe,
+  animate,
+}: {
+  src: string;
+  hotspots: DarkHotspot[];
+  wireframe: boolean;
+  animate: boolean;
+}) {
+  // Use scene directly (not cloned) so AnimationMixer can bind tracks by name
+  const { scene, animations } = useGLTF(src);
+  const groupRef = useRef<THREE.Group>(null!);
+  const { actions } = useAnimations(animations, groupRef);
 
-  const box = useMemo(() => new THREE.Box3().setFromObject(cloned), [cloned]);
+  const box = useMemo(() => new THREE.Box3().setFromObject(scene), [scene]);
   const center = useMemo(() => {
     const v = new THREE.Vector3();
     return box.isEmpty() ? v : box.getCenter(v);
@@ -29,9 +44,32 @@ function Model({ src, hotspots }: { src: string; hotspots: DarkHotspot[] }) {
     return box.isEmpty() ? v : box.getSize(new THREE.Vector3());
   }, [box]);
 
+  // Wireframe toggle
+  useEffect(() => {
+    scene.traverse((child: any) => {
+      if (child.isMesh) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((mat: any) => { if (mat) mat.wireframe = wireframe; });
+      }
+    });
+  }, [scene, wireframe]);
+
+  // Play / stop embedded GLB animation clips based on animate prop
+  useEffect(() => {
+    Object.values(actions).forEach(action => {
+      if (!action) return;
+      if (animate) {
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.reset().play();
+      } else {
+        action.stop();
+      }
+    });
+  }, [animate, actions]);
+
   return (
-    <>
-      <primitive object={cloned} />
+    <group ref={groupRef}>
+      <primitive object={scene} />
       {hotspots.map((hs, i) => {
         const total = hotspots.length;
         const angle = total <= 1 ? Math.PI / 5 : (i / total) * Math.PI * 2 - Math.PI / 2;
@@ -63,6 +101,29 @@ function Model({ src, hotspots }: { src: string; hotspots: DarkHotspot[] }) {
           </Html>
         );
       })}
+    </group>
+  );
+}
+
+function AnimatedGlow() {
+  const cyanRef = useRef<THREE.PointLight>(null);
+  const purpleRef = useRef<THREE.PointLight>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (cyanRef.current) {
+      cyanRef.current.intensity = 3 + Math.sin(t * 1.4) * 1.8;
+      cyanRef.current.color.setHSL(0.52 + Math.sin(t * 0.6) * 0.02, 1, 0.5);
+    }
+    if (purpleRef.current) {
+      purpleRef.current.intensity = 1.2 + Math.sin(t * 0.9 + 1.2) * 0.8;
+    }
+  });
+
+  return (
+    <>
+      <pointLight ref={cyanRef} position={[0, 0.4, 0.3]} color="#00e5ff" intensity={3} distance={5} decay={2} />
+      <pointLight ref={purpleRef} position={[0, -0.3, 0.5]} color="#7c3aed" intensity={1.5} distance={4} decay={2} />
     </>
   );
 }
@@ -78,6 +139,15 @@ function ProgressOverlay() {
   );
 }
 
+// Exposes OrbitControls API to the outer component via callback
+function OrbitControlsWrapper({ onMount }: { onMount: (api: any) => void }) {
+  const ref = useRef<any>(null);
+  useEffect(() => {
+    if (ref.current) onMount(ref.current);
+  });
+  return <OrbitControls ref={ref} makeDefault enableDamping dampingFactor={0.05} />;
+}
+
 interface GlbViewerDarkProps {
   src: string | null;
   hotspots?: DarkHotspot[];
@@ -85,12 +155,63 @@ interface GlbViewerDarkProps {
   onBack?: () => void;
   onAddActive?: () => void;
   isActiveAdded?: boolean;
+  autoRotate?: boolean;
 }
 
-export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, onAddActive, isActiveAdded = false }: GlbViewerDarkProps) {
-  const [showGrid, setShowGrid] = useState(false);
+export function GlbViewerDark({
+  src,
+  hotspots = [],
+  canGoBack = false,
+  onBack,
+  onAddActive,
+  isActiveAdded = false,
+  autoRotate = false,
+}: GlbViewerDarkProps) {
+  const [showGrid, setShowGrid]         = useState(false);
+  const [wireframe, setWireframe]       = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { theme } = useTheme();
   const bgColor = theme === "light" ? "#f8fafc" : "#06070a";
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const controlsApiRef = useRef<any>(null);
+
+  const handleOrbitMount = useCallback((api: any) => {
+    controlsApiRef.current = api;
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    controlsApiRef.current?.reset();
+  }, []);
+
+  const handleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      el.requestFullscreen?.();
+    }
+  }, []);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  // Reset wireframe when model changes
+  useEffect(() => {
+    setWireframe(false);
+  }, [src]);
+
+  const ctrlBtnClass = (active?: boolean) =>
+    `flex h-7 w-7 items-center justify-center rounded-lg border backdrop-blur-sm transition shadow-sm ${
+      active
+        ? "border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-300"
+        : "border-slate-300 bg-white/80 text-slate-600 hover:border-slate-400 hover:text-slate-900 dark:border-white/10 dark:bg-black/50 dark:text-white/50 dark:hover:border-white/30 dark:hover:text-white"
+    }`;
 
   if (!src) {
     return (
@@ -107,7 +228,7 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: bgColor }}>
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={{ backgroundColor: bgColor }}>
       <Canvas
         key={src}
         camera={{ position: [0, 0, 5], fov: 45 }}
@@ -119,18 +240,19 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
         <directionalLight position={[-5, -5, -5]} intensity={0.3} />
         <pointLight position={[0, 5, 0]} intensity={0.5} />
         <Environment preset="studio" />
+        <AnimatedGlow />
         <Suspense fallback={null}>
-          <Bounds key={src} fit clip observe margin={1.25}>
-            <Model src={src} hotspots={hotspots} />
+          <Bounds key={src} fit clip margin={1.25}>
+            <Model src={src} hotspots={hotspots} wireframe={wireframe} animate={autoRotate} />
           </Bounds>
         </Suspense>
         {showGrid && <gridHelper args={[20, 20, "#1a1a2e", "#0d0d1a"]} />}
-        <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
+        <OrbitControlsWrapper onMount={handleOrbitMount} />
       </Canvas>
 
       <ProgressOverlay />
 
-      {/* Bottom-left hint */}
+      {/* Bottom-left hints */}
       <div className="pointer-events-none absolute left-2.5 bottom-2.5 flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-white/8 bg-white/80 dark:bg-black/50 px-2.5 py-1 text-[10px] text-slate-600 dark:text-white/30 backdrop-blur-sm font-mono shadow-sm">
         Drag · scroll · right-drag to pan
       </div>
@@ -160,22 +282,49 @@ export function GlbViewerDark({ src, hotspots = [], canGoBack = false, onBack, o
         {canGoBack && (
           <button
             onClick={onBack}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-300 dark:border-white/10 bg-white/80 dark:bg-black/50 text-slate-600 dark:text-white/50 backdrop-blur-sm transition hover:border-slate-400 dark:hover:border-white/30 hover:text-slate-900 dark:hover:text-white shadow-sm"
+            className={ctrlBtnClass()}
             title="Back to previous assembly"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
         )}
+
+        {/* Reset View */}
+        <button
+          onClick={handleResetView}
+          className={ctrlBtnClass()}
+          title="Reset view"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+
+        {/* Wireframe */}
+        <button
+          onClick={() => setWireframe(v => !v)}
+          className={ctrlBtnClass(wireframe)}
+          title={wireframe ? "Disable wireframe" : "Enable wireframe"}
+        >
+          <Layers className="h-3.5 w-3.5" />
+        </button>
+
+        {/* Grid */}
         <button
           onClick={() => setShowGrid(v => !v)}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg border backdrop-blur-sm transition shadow-sm ${
-            showGrid
-              ? "border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-300"
-              : "border-slate-300 bg-white/80 text-slate-600 hover:border-slate-400 hover:text-slate-900 dark:border-white/10 dark:bg-black/50 dark:text-white/50 dark:hover:border-white/30 dark:hover:text-white"
-          }`}
+          className={ctrlBtnClass(showGrid)}
           title="Toggle grid"
         >
           <Grid3X3 className="h-3.5 w-3.5" />
+        </button>
+
+        {/* Fullscreen */}
+        <button
+          onClick={handleFullscreen}
+          className={ctrlBtnClass(isFullscreen)}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >
+          {isFullscreen
+            ? <Minimize2 className="h-3.5 w-3.5" />
+            : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
       </div>
     </div>

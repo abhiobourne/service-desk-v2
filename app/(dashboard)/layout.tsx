@@ -20,7 +20,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isDeepTroubleshooting = /^\/troubleshooting\/[^/]+\/[^/]+/.test(pathname);
+  const isDeepTroubleshooting = /^\/diagnostics\/troubleshooting\/[^/]+\/[^/]+/.test(pathname);
   const isFullView = searchParams.get("full") === "1" || isDeepTroubleshooting;
 
   useEffect(() => {

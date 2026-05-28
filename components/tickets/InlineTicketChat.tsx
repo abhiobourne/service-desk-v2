@@ -37,6 +37,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
   const [searchVal, setSearchVal] = useState("");
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [liveStatus, setLiveStatus] = useState<string>(ticket.status ?? "");
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const ticketId = ticket.id;
@@ -115,6 +116,10 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
       });
     });
 
+    sock.on("ticket:status-updated", (data: any) => {
+      if (data?.status) setLiveStatus(data.status);
+    });
+
     return () => {
       sock.emit("ticket:unsubscribe", { ticketId });
       sock.disconnect();
@@ -176,7 +181,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
     return allMessages.filter((m) => m.text.toLowerCase().includes(q));
   }, [allMessages, searchVal]);
 
-  const isClosedOrResolved = ["resolved", "closed"].includes((ticket.status ?? "").toLowerCase());
+  const isClosedOrResolved = ["resolved", "closed"].includes((liveStatus || ticket.status || "").toLowerCase());
 
   const sendMessage = () => {
     if (!message.trim() || isClosedOrResolved || !socketRef.current?.connected) return;
@@ -210,16 +215,16 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
   return (
     <div className="flex flex-col h-full bg-[#090b10]">
       {/* Header */}
-      <div className="h-14 shrink-0 border-b border-white/5 flex items-center gap-3 px-4">
-        <div className="w-8 h-8 rounded-full bg-violet-600/30 flex items-center justify-center shrink-0">
-          <span className="text-xs font-mono font-bold text-violet-300">
+      <div className="h-14 shrink-0 border-b border-white/5 bg-[#0c0e16] flex items-center gap-3 px-4">
+        <div className="w-8 h-8 rounded-full bg-blue-600/30 flex items-center justify-center shrink-0">
+          <span className="text-xs font-mono font-bold text-blue-300">
             {assigneeName ? assigneeName[0].toUpperCase() : "A"}
           </span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="text-xs font-mono font-semibold text-white/80 truncate">
-              {assigneeName ?? "Support Agent"}
+            <div className={`text-xs font-mono font-semibold truncate ${assigneeName ? "text-blue-200" : "text-white/40"}`}>
+              {assigneeName ?? "Awaiting Assignment"}
             </div>
             {/* Connection dot */}
             <span
@@ -228,9 +233,9 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             />
           </div>
           <div className="flex items-center gap-2">
-            <code className="text-[9px] font-mono text-violet-400">#{ticket.ticket_id}</code>
+            <code className="text-[9px] font-mono text-blue-400">#{ticket.ticket_id}</code>
             {unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-[8px] font-mono font-bold text-violet-300">
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-[8px] font-mono font-bold text-blue-300">
                 {unreadCount} unread
               </span>
             )}
@@ -317,7 +322,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
         <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
           <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
             <p className="text-xs font-mono text-white/40">
-              {ticket.status?.includes("resolv") ? "✓ Ticket resolved — chat disabled." : "🔒 Ticket closed — messaging disabled."}
+              {(liveStatus || ticket.status || "").toLowerCase().includes("resolv") ? "✓ Ticket resolved — chat disabled." : "Ticket closed — messaging disabled."}
             </p>
           </div>
         </div>
@@ -325,7 +330,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
         <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
           <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
             <p className="text-xs font-mono text-amber-400/60">
-              ⚠️ Technician not assigned yet. Please wait for the technician to be assigned.
+              Technician not assigned yet. Please wait for the technician to be assigned.
             </p>
           </div>
         </div>

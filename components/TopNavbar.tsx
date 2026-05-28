@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, ChevronDown, PlusCircle, Sun, Moon } from "lucide-react";
+import { Bell, LogOut, ChevronDown, PlusCircle, Sun, Moon, User } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 import { useAbility } from "../providers/AbilityProvider";
 import { useTheme } from "../providers/ThemeProvider";
@@ -10,7 +10,7 @@ import { useNotifications } from "../providers/NotificationProvider";
 
 export function TopNavbar() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isClientUser, clients } = useAuth();
   const { roleName } = useAbility();
   const { theme, toggleTheme } = useTheme();
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
@@ -35,11 +35,11 @@ export function TopNavbar() {
       {/* Right: search + actions + profile */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push("/?tab=support")}
-          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-mono tracking-wider font-bold rounded flex items-center gap-1.5 shadow-[0_0_12px_#2563eb22] transition uppercase"
+          onClick={() => router.push("/")}
+          className="px-3.5 py-1.5 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-[11px] font-mono tracking-wider font-bold rounded flex items-center gap-1.5 shadow-[0_0_12px_#2d6cfa44] transition uppercase"
         >
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span>Connect Machine</span>
+          <PlusCircle className="h-3.5 w-3.5 text-white" />
+          <span className="text-white">Connect Machine</span>
         </button>
 
         {/* Bell */}
@@ -117,14 +117,16 @@ export function TopNavbar() {
               onClick={() => setProfileOpen(v => !v)}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 transition"
             >
-              <div className="h-8 w-8 shrink-0 rounded-full border border-cyan-400/40 bg-[#121620] flex items-center justify-center font-mono text-xs font-bold text-cyan-400">
+              <div className="h-8 w-8 shrink-0 rounded-full border border-blue-400/40 bg-blue-50/5 dark:bg-[#121620] flex items-center justify-center font-mono text-xs font-bold text-blue-500 dark:text-blue-400">
                 {user.firstName?.[0]}{user.lastName?.[0]}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-[11px] font-mono font-semibold text-white leading-none">{user.firstName} {user.lastName}</p>
-                <p className="text-[9px] font-mono text-cyan-400/80 uppercase tracking-wider mt-0.5">{roleName}</p>
+                <p className="text-[11px] font-mono font-semibold text-slate-900 dark:text-white leading-none">{user.firstName} {user.lastName}</p>
+                <p className="text-[9px] font-mono text-blue-500/80 dark:text-blue-400/80 uppercase tracking-wider mt-0.5">
+                  {isClientUser && clients.length > 0 ? clients[0].name : roleName}
+                </p>
               </div>
-              <ChevronDown className={`h-3 w-3 text-white/30 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`h-3 w-3 text-slate-400 dark:text-white/30 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
             </button>
 
             {profileOpen && (
@@ -133,6 +135,17 @@ export function TopNavbar() {
                   <p className="text-xs font-mono font-semibold text-white truncate">{user.firstName} {user.lastName}</p>
                   <p className="text-[9px] font-mono text-white/35 truncate mt-0.5">{(user as any).email ?? ""}</p>
                 </div>
+                {/* Profile */}
+                <button
+                  onClick={() => { setProfileOpen(false); router.push("/profile"); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-white/60 hover:bg-white/5 transition"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Profile
+                </button>
+
+                <div className="border-t border-white/5" />
+
                 {/* Theme toggle */}
                 <button
                   onClick={toggleTheme}
