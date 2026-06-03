@@ -1295,6 +1295,8 @@ export default function TroubleshootingPage() {
         initialClientId={selectedOrderCtx?.client_id ?? queryClientId}
         initialOrderId={selectedOrderCtx?.id ?? queryOrderId ?? orderRef}
         initialProductId={selectedProductId}
+        initialOrderLabel={selectedOrderCtx?.order_id ?? orderRef ?? undefined}
+        initialProductLabel={selectedProduct?.product_name ?? undefined}
         selectedPartNodes={selectedPartNodes}
       />
     </div>

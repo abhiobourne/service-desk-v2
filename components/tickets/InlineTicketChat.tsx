@@ -216,14 +216,14 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
     <div className="flex flex-col h-full bg-[#090b10]">
       {/* Header */}
       <div className="h-14 shrink-0 border-b border-white/5 bg-[#0c0e16] flex items-center gap-3 px-4">
-        <div className="w-8 h-8 rounded-full bg-blue-600/30 flex items-center justify-center shrink-0">
-          <span className="text-xs font-mono font-bold text-blue-300">
+        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+          <span className="text-xs font-mono font-bold text-white">
             {assigneeName ? assigneeName[0].toUpperCase() : "A"}
           </span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className={`text-xs font-mono font-semibold truncate ${assigneeName ? "text-blue-200" : "text-white/40"}`}>
+            <div className={`text-xs font-mono font-semibold truncate ${assigneeName ? "text-white" : "text-white/40"}`}>
               {assigneeName ?? "Awaiting Assignment"}
             </div>
             {/* Connection dot */}
@@ -291,17 +291,17 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
               )}
               <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
                 <div className={`relative px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${msg.isBackendSystem
-                  ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
+                  ? "max-w-[85%] bg-slate-700/60 border border-slate-600/40 text-slate-300 rounded-xl rounded-bl-sm"
                   : msg.isSystem
                     ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
                     : msg.sender === "user"
-                      ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
+                      ? "max-w-[70%] bg-blue-600 text-white rounded-2xl rounded-br-sm"
                       : msg.isUnread
-                        ? "max-w-[70%] bg-[#0f0c1a] border border-violet-500/30 text-white/80 rounded-2xl rounded-bl-sm ring-1 ring-violet-500/20"
+                        ? "max-w-[70%] bg-[#0f1420] border border-blue-500/30 text-white/80 rounded-2xl rounded-bl-sm ring-1 ring-blue-500/20"
                         : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
                   }`}>
                   {msg.isBackendSystem && (
-                    <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-amber-400/60">System</div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-slate-400">System</div>
                   )}
                   {/* Unread indicator dot */}
                   {msg.isUnread && (
@@ -329,7 +329,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
       ) : !ticket.assignee_details || (!ticket.assignee_details.firstName && !ticket.assignee_details.lastName) ? (
         <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
           <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
-            <p className="text-xs font-mono text-amber-400/60">
+            <p className="text-xs font-mono text-white/50">
               Technician not assigned yet. Please wait for the technician to be assigned.
             </p>
           </div>
@@ -356,7 +356,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             type="button"
             onClick={sendMessage}
             disabled={!message.trim() || !connected}
-            className={`transition ${message.trim() && connected ? "text-violet-400 hover:text-violet-300" : "text-white/20 cursor-not-allowed"}`}
+            className={`transition ${message.trim() && connected ? "text-blue-400 hover:text-blue-300" : "text-white/20 cursor-not-allowed"}`}
           >
             <SendHorizontal className="w-5 h-5" />
           </button>

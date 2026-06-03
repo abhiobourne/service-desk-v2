@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Wrench, Calendar, CheckCircle2, AlertTriangle, Clock,
-  Filter, RefreshCw, ChevronDown, BarChart3,
+  RefreshCw, ChevronDown, BarChart3,
 } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -190,7 +190,6 @@ export default function MaintenancePage() {
             className="flex-1 min-w-[200px]"
           />
           <div className="flex items-center gap-2 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-slate-400 dark:text-white/30" />
             <div className="relative">
               <select
                 value={statusFilter}

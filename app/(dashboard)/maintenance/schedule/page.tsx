@@ -55,7 +55,7 @@ const STATUS_PILL: Record<MaintStatus, { bg: string; text: string; dot: string; 
 
 const TYPE_DOT: Record<MaintType, string> = {
   Preventive:  "bg-blue-500",
-  Inspection:  "bg-violet-500",
+  Inspection:  "bg-blue-400",
   Emergency:   "bg-rose-500",
   Calibration: "bg-cyan-500",
   Replacement: "bg-amber-500",
@@ -303,8 +303,8 @@ export default function ScheduleMaintenancePage() {
           <Breadcrumbs className="mb-2" items={[{ label: "Dashboard", href: "/" }, { label: "Maintenance", href: "/maintenance" }, { label: "Schedule" }]} />
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/20 flex items-center justify-center shrink-0">
-                <Calendar className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <h1 className="text-base font-bold text-slate-900 dark:text-white">Maintenance Schedule</h1>
@@ -315,7 +315,7 @@ export default function ScheduleMaintenancePage() {
             </div>
             <button
               onClick={() => openDrawer()}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition shadow-[0_0_16px_rgba(124,58,237,0.25)] active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-xs font-semibold rounded-lg transition shadow-[0_0_16px_rgba(45,108,250,0.2)] active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Maintenance
@@ -368,8 +368,8 @@ export default function ScheduleMaintenancePage() {
               {/* Calendar header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/5">
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
-                    <Calendar className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
                     <span className="text-sm font-bold text-slate-900 dark:text-white">Maintenance calendar</span>
@@ -501,7 +501,7 @@ export default function ScheduleMaintenancePage() {
 
               {/* Machine context */}
               <div className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
-                <div className="h-[3px] bg-gradient-to-r from-violet-600 via-blue-500 to-cyan-400" />
+                <div className="h-[3px] bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-400" />
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Cpu className="w-3.5 h-3.5 text-blue-500" />
@@ -544,7 +544,7 @@ export default function ScheduleMaintenancePage() {
 
                 {!hydrated ? (
                   <div className="p-6 flex justify-center">
-                    <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                   </div>
                 ) : sidebarEvents.length === 0 ? (
                   <div className="p-6 text-center">
@@ -622,10 +622,10 @@ export default function ScheduleMaintenancePage() {
               {/* Drawer header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/5 shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
                     {detailEvent
-                      ? <Wrench className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                      : <Plus className="w-4 h-4 text-violet-600 dark:text-violet-400" />}
+                      ? <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      : <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">
@@ -726,7 +726,7 @@ export default function ScheduleMaintenancePage() {
                           module: detailEvent.module ?? "",
                         });
                       }}
-                      className="w-full py-2.5 border border-violet-200 dark:border-violet-500/25 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/15 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                      className="w-full py-2.5 border border-blue-200 dark:border-blue-500/25 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/15 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Reschedule / Edit
@@ -748,7 +748,7 @@ export default function ScheduleMaintenancePage() {
                         value={form.title}
                         onChange={e => handleField("title", e.target.value)}
                         placeholder="e.g. Gradient coil inspection"
-                        className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.title ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition`}
+                        className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.title ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition`}
                       />
                       {formErrors.title && <p className="text-[10px] text-rose-500 mt-1">{formErrors.title}</p>}
                     </div>
@@ -760,7 +760,7 @@ export default function ScheduleMaintenancePage() {
                         <select
                           value={form.type}
                           onChange={e => handleField("type", e.target.value as MaintType)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition"
+                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
                         >
                           {MAINT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -770,7 +770,7 @@ export default function ScheduleMaintenancePage() {
                         <select
                           value={form.priority}
                           onChange={e => handleField("priority", e.target.value as MaintPriority)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition"
+                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
                         >
                           {(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as MaintPriority[]).map(p => (
                             <option key={p} value={p}>{p}</option>
@@ -789,7 +789,7 @@ export default function ScheduleMaintenancePage() {
                           type="date"
                           value={form.scheduledDate}
                           onChange={e => handleField("scheduledDate", e.target.value)}
-                          className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.scheduledDate ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition`}
+                          className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.scheduledDate ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition`}
                         />
                       </div>
                       <div>
@@ -803,7 +803,7 @@ export default function ScheduleMaintenancePage() {
                           step="0.5"
                           value={form.duration}
                           onChange={e => handleField("duration", e.target.value)}
-                          className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.duration ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition`}
+                          className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${formErrors.duration ? "border-rose-400 dark:border-rose-500/60" : "border-slate-200 dark:border-white/10"} rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition`}
                         />
                       </div>
                     </div>
@@ -815,7 +815,7 @@ export default function ScheduleMaintenancePage() {
                         <select
                           value={form.technician}
                           onChange={e => handleField("technician", e.target.value)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition"
+                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
                         >
                           {TECHNICIANS.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -825,7 +825,7 @@ export default function ScheduleMaintenancePage() {
                         <select
                           value={form.category}
                           onChange={e => handleField("category", e.target.value)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition"
+                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
                         >
                           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
@@ -856,7 +856,7 @@ export default function ScheduleMaintenancePage() {
                         onChange={e => handleField("description", e.target.value)}
                         rows={3}
                         placeholder="Additional context or instructions for the technician..."
-                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition"
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none transition"
                       />
                     </div>
 
@@ -878,7 +878,7 @@ export default function ScheduleMaintenancePage() {
                     type="submit"
                     form="maint-form"
                     disabled={submitting}
-                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(124,58,237,0.3)] active:scale-95"
+                    className="flex-1 py-2.5 bg-[#2D6CFA] hover:bg-[#255DE6] disabled:opacity-60 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(45,108,250,0.2)] active:scale-95"
                   >
                     {submitting ? (
                       <>

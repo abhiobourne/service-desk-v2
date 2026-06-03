@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, ChevronDown, Loader2, Paperclip, Lock } from "lucide-react";
+import { X, ChevronDown, Loader2, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   createOrderTicket,
@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../../providers/AuthProvider";
 import { TicketCreatedPopup } from "./TicketCreatedPopup";
 import { DesignTreeSelect } from "../ui/DesignTreeSelect";
+import { MultiFileUpload } from "../ui/MultiFileUpload";
 
 interface AddTicketDrawerProps {
   isOpen: boolean;
@@ -25,6 +26,9 @@ interface AddTicketDrawerProps {
   /** UUID or display order_id string (e.g. "ORD-380725") */
   initialOrderId?: string | null;
   initialProductId?: string | null;
+  /** Human-readable labels to show in the locked fields (avoids showing raw UUIDs) */
+  initialOrderLabel?: string | null;
+  initialProductLabel?: string | null;
   selectedPartNodes?: TroubleshootingDesignNode[];
 }
 
@@ -61,7 +65,7 @@ function SelectField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled || loading || locked}
-            className="w-full appearance-none bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 pr-8 rounded-lg focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50"
+            className="w-full appearance-none bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 pr-8 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50"
           >
             <option value="">{loading ? "Loading…" : placeholder}</option>
             {options.map((o) => (
@@ -89,6 +93,8 @@ export function AddTicketDrawer({
   initialClientId,
   initialOrderId,
   initialProductId,
+  initialOrderLabel,
+  initialProductLabel,
   selectedPartNodes = [],
 }: AddTicketDrawerProps) {
   const { user, clients: authClients } = useAuth();
@@ -138,34 +144,39 @@ export function AddTicketDrawer({
     }));
   }, [isOpen, effectiveClientId, initialOrderId, initialProductId]);
 
-  // Load ALL orders for the client (no status filter) whenever client changes
+  // Fetch all orders then keep only delivered ones (case-insensitive match)
   useEffect(() => {
     if (!form.client_id) {
       setOrders([]);
       return;
     }
     setLoadingOrders(true);
-    // No status filter — show every order for this client
     fetchOrdersByClient(form.client_id).then((res) => {
-      setOrders(res);
+      const delivered = res.filter(o =>
+        !o.status || o.status.toLowerCase() === "delivered"
+      );
+      setOrders(delivered);
       setLoadingOrders(false);
     });
   }, [form.client_id]);
 
-  // After orders load: if the stored order_id doesn't match any o.id (UUID),
-  // try matching by o.order_id display string and correct the form value.
+  // After orders load: correct order_id if initialOrderId was a display string, not UUID
   useEffect(() => {
     if (!orders.length || !initialOrderId) return;
-    if (orders.some((o) => o.id === form.order_id)) return; // already matched
-
-    const byDisplay = orders.find(
-      (o) => o.order_id === initialOrderId || o.id === initialOrderId,
-    );
-    if (byDisplay) {
-      setForm((f) => ({ ...f, order_id: byDisplay.id }));
-    }
+    if (orders.some((o) => o.id === form.order_id)) return;
+    const byDisplay = orders.find(o => o.order_id === initialOrderId || o.id === initialOrderId);
+    if (byDisplay) setForm((f) => ({ ...f, order_id: byDisplay.id }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, initialOrderId]);
+
+  // Auto-select order when exactly 1 delivered order exists and no pre-fill is set
+  useEffect(() => {
+    if (initialOrderId || form.order_id) return;
+    if (orders.length === 1) {
+      setForm(f => ({ ...f, order_id: orders[0].id }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
 
   const selectedOrder = useMemo(
     () => orders.find((o) => o.id === form.order_id),
@@ -176,6 +187,16 @@ export function AddTicketDrawer({
     () => selectedOrder?.line_items ?? selectedOrder?.items ?? [],
     [selectedOrder],
   );
+
+  // Auto-select product when exactly 1 product exists in the selected order and no pre-fill is set
+  useEffect(() => {
+    if (initialProductId || form.product_id) return;
+    if (products.length === 1) {
+      const p = products[0];
+      setForm(f => ({ ...f, product_id: p.product_uuid || p.product_id }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products]);
 
   // After the selected order resolves, auto-select the product that matches initialProductId
   useEffect(() => {
@@ -285,8 +306,16 @@ export function AddTicketDrawer({
 
   if (!isOpen && !createdTicket) return null;
 
-  const lockedOrderLabel = initialOrderId ? orders.find(o => o.id === form.order_id)?.order_id ?? initialOrderId : undefined;
-  const lockedProductLabel = initialProductId ? products.find(p => (p.product_uuid || p.product_id) === form.product_id)?.product_name ?? initialProductId : undefined;
+  // Lock when pre-filled via props OR when auto-selected because it's the only choice
+  const isSingleOrder   = !initialOrderId   && orders.length === 1;
+  const isSingleProduct = !initialProductId && products.length === 1;
+
+  const orderLocked   = !!initialOrderId   || isSingleOrder;
+  const productLocked = !!initialProductId || isSingleProduct;
+
+  // Prefer passed-in labels, then resolve from loaded list, then fall back to ID
+  const lockedOrderLabel   = orderLocked   ? (initialOrderLabel   ?? orders.find(o => o.id === form.order_id)?.order_id   ?? initialOrderId   ?? form.order_id)   : undefined;
+  const lockedProductLabel = productLocked ? (initialProductLabel ?? products.find(p => (p.product_uuid || p.product_id) === form.product_id)?.product_name ?? initialProductId ?? form.product_id) : undefined;
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
@@ -338,7 +367,7 @@ export function AddTicketDrawer({
                 placeholder={form.client_id ? "Select an order" : "Select client first"}
                 disabled={!form.client_id}
                 loading={loadingOrders}
-                locked={!!initialOrderId}
+                locked={orderLocked}
                 lockedDisplay={lockedOrderLabel}
               />
               {errors.order_id && (
@@ -364,7 +393,7 @@ export function AddTicketDrawer({
                     : "Select order first"
                 }
                 disabled={!form.order_id || products.length === 0}
-                locked={!!initialProductId}
+                locked={productLocked}
                 lockedDisplay={lockedProductLabel}
               />
               {errors.product_id && (
@@ -372,29 +401,29 @@ export function AddTicketDrawer({
               )}
             </div>
 
-            {/* Component / Module selector */}
+            {/* Component / Module selector — disabled when parts pre-selected from 3D view */}
             <DesignTreeSelect
-              label={`Component (optional)`}
+              label={selectedPartNodes.length > 0 ? "Component (pre-selected from 3D view)" : "Component (optional)"}
               nodes={designNodes}
               value={form.component}
               onChange={(uuids, nodes) => { setForm(f => ({ ...f, component: uuids })); setComponentNodes(nodes); }}
               mode="multi"
-              placeholder={form.product_id ? "Select components…" : "Select product first"}
-              disabled={!form.product_id}
+              placeholder={selectedPartNodes.length > 0 ? `${selectedPartNodes.length} part${selectedPartNodes.length > 1 ? "s" : ""} selected from 3D view` : form.product_id ? "Select components…" : "Select product first"}
+              disabled={!form.product_id || selectedPartNodes.length > 0}
               loading={loadingNodes}
             />
 
             {/* Selected faulty parts from troubleshooting */}
             {selectedPartNodes.length > 0 && (
-              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-                <p className="mb-2 text-[10px] font-mono uppercase tracking-widest text-violet-600">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <p className="mb-2 text-[10px] font-mono uppercase tracking-widest text-blue-600">
                   Faulty Components ({selectedPartNodes.length})
                 </p>
                 <div className="max-h-28 space-y-1 overflow-y-auto">
                   {selectedPartNodes.map((node) => (
                     <div
                       key={node.design_version_id || node.design_uuid}
-                      className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1.5 border border-violet-100"
+                      className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1.5 border border-blue-100"
                     >
                       <span className="truncate text-[10px] font-mono text-slate-700">{node.design_name}</span>
                       <span className="shrink-0 text-[9px] font-mono text-slate-400">{node.design_type}</span>
@@ -414,7 +443,7 @@ export function AddTicketDrawer({
                 value={form.reason}
                 onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
                 placeholder="Briefly describe the reason…"
-                className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 rounded-lg focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none placeholder:text-slate-400"
+                className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none placeholder:text-slate-400"
               />
             </div>
 
@@ -428,7 +457,7 @@ export function AddTicketDrawer({
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="Add any additional details…"
-                className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 rounded-lg focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none placeholder:text-slate-400"
+                className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-mono px-3 py-2.5 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none placeholder:text-slate-400"
               />
               {errors.description && (
                 <p className="text-red-500 text-[10px] mt-1">{errors.description}</p>
@@ -440,39 +469,14 @@ export function AddTicketDrawer({
               <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">
                 Attachments <span className="normal-case text-slate-400">(optional)</span>
               </label>
-              <label className="flex flex-col items-center justify-center gap-2 h-20 rounded-lg border border-dashed border-slate-200 hover:border-violet-400 cursor-pointer transition bg-slate-50 hover:bg-violet-50">
-                <Paperclip className="w-4 h-4 text-slate-400" />
-                <span className="text-[10px] font-mono text-slate-400">Click to attach files</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) =>
-                    setAttachments((prev) => [...prev, ...Array.from(e.target.files ?? [])])
-                  }
-                />
-              </label>
-              {attachments.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {attachments.map((f, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 px-2 py-1 rounded bg-slate-50 border border-slate-200"
-                    >
-                      <Paperclip className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="flex-1 text-[10px] font-mono text-slate-600 truncate">{f.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-slate-300 hover:text-red-500 transition shrink-0"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <MultiFileUpload
+                value={attachments}
+                onChange={setAttachments}
+                accept="image/*,application/pdf"
+                acceptLabel="PNG, JPG, GIF or PDF"
+                cropImages
+                aspectRatio={16 / 9}
+              />
             </div>
           </div>
 
@@ -488,7 +492,7 @@ export function AddTicketDrawer({
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="flex-1 py-2.5 text-xs font-semibold bg-[#2D6CFA] hover:bg-[#255DE6] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm shadow-blue-200"
             >
               {submitting ? "Creating…" : "Create Ticket"}
             </button>
