@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { X, SendHorizontal, ExternalLink, AlertCircle } from "lucide-react";
+import { X, SendHorizontal, ExternalLink, AlertCircle, Search } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 import { fetchTicketCommunications, getApiToken } from "../../lib/api";
@@ -55,6 +55,8 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
   const [readMap, setReadMap] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState("");
   const [searchVal, setSearchVal] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [liveStatus, setLiveStatus] = useState<string>(ticket.status ?? "");
@@ -237,44 +239,84 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
   return (
     <div className="flex h-full flex-col bg-white dark:bg-[#090b10]">
       {/* Header */}
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 dark:border-white/5 dark:bg-[#0c0e16]">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 dark:border-white/5 dark:bg-[#0c0e16]">
+        {/* Avatar — always visible */}
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 shadow-sm">
-          <span className="text-xs font-bold text-white">
+          <span className="text-xs font-bold" style={{ color: "#fff" }}>
             {assigneeName ? assigneeName[0].toUpperCase() : "A"}
           </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className={`truncate text-sm font-semibold ${assigneeName ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-white/40"}`}>
-              {assigneeName ?? "Awaiting Assignment"}
-            </div>
-            {/* Connection dot */}
-            <span
-              title={connectError ? `Error: ${connectError}` : connected ? "Connected" : "Connecting…"}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-                connectError
-                  ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20"
-                  : connected
-                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20"
-                    : "bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${
-                connectError ? "bg-rose-500" : connected ? "bg-emerald-500" : "animate-pulse bg-amber-500"
-              }`} />
-              {connectError ? "Offline" : connected ? "Active" : "Connecting"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="text-[10px] font-mono text-blue-600 dark:text-blue-400">#{ticket.ticket_id}</code>
-            {unreadCount > 0 && (
-              <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] font-bold text-blue-600 ring-1 ring-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:ring-blue-500/30">
-                {unreadCount} unread
-              </span>
+
+        {/* Center: assignee info OR inline search input */}
+        {searchOpen ? (
+          <div className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 dark:text-white/25" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              placeholder="Search messages…"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-8 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/20 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
+            />
+            {searchVal && (
+              <button
+                type="button"
+                onClick={() => setSearchVal("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
-        </div>
+        ) : (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div className={`truncate text-sm font-semibold ${assigneeName ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-white/40"}`}>
+                {assigneeName ?? "Awaiting Assignment"}
+              </div>
+              <span
+                title={connectError ? `Error: ${connectError}` : connected ? "Connected" : "Connecting…"}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                  connectError
+                    ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20"
+                    : connected
+                      ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20"
+                      : "bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${connectError ? "bg-rose-500" : connected ? "bg-emerald-500" : "animate-pulse bg-amber-500"}`} />
+                {connectError ? "Offline" : connected ? "Active" : "Connecting"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="text-[10px] font-mono text-blue-600 dark:text-blue-400">#{ticket.ticket_id}</code>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] font-bold text-blue-600 ring-1 ring-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:ring-blue-500/30">
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Right actions — always visible */}
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => {
+              setSearchOpen(v => {
+                const next = !v;
+                if (next) setTimeout(() => searchInputRef.current?.focus(), 50);
+                else setSearchVal("");
+                return next;
+              });
+            }}
+            title={searchOpen ? "Close search" : "Search messages"}
+            className={`rounded-md p-2 transition ${searchOpen ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400" : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-white/70"}`}
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
           {onOpenDetail && (
             <button
               onClick={onOpenDetail}
@@ -287,31 +329,6 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
           <button onClick={onClose} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-white/70">
             <X className="w-3.5 h-3.5" />
           </button>
-        </div>
-      </div>
-
-      {/* Search bar */}
-      <div className="border-b border-slate-200 bg-white px-5 py-3 dark:border-white/5 dark:bg-[#0c0e16]">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchVal}
-            onChange={(e) => setSearchVal(e.target.value)}
-            placeholder="Search messages…"
-            autoFocus
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-9 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/20 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
-          />
-          {searchVal && (
-            <button
-              type="button"
-              onClick={() => setSearchVal("")}
-              aria-label="Clear message search"
-              title="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -332,16 +349,19 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
                 </div>
               )}
               <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
-                <div className={`relative px-4 py-3 text-xs leading-relaxed ${msg.isBackendSystem
-                  ? "max-w-[88%] rounded-xl border border-blue-200 bg-blue-50 text-slate-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100/80"
-                  : msg.isSystem
-                    ? "max-w-[88%] rounded-xl border border-blue-100 bg-white text-slate-600 shadow-sm dark:border-white/8 dark:bg-white/5 dark:text-white/55"
-                    : msg.sender === "user"
-                      ? "max-w-[76%] rounded-2xl rounded-br-md bg-blue-600 text-white shadow-sm"
-                      : msg.isUnread
-                        ? "max-w-[76%] rounded-2xl rounded-bl-md border border-blue-200 bg-white text-slate-800 shadow-sm ring-2 ring-blue-100 dark:border-blue-500/30 dark:bg-[#0f1420] dark:text-white/80 dark:ring-blue-500/10"
-                        : "max-w-[76%] rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-white/8 dark:bg-white/8 dark:text-white/70"
-                  }`}>
+                <div
+                  className={`relative px-4 py-3 text-xs leading-relaxed ${msg.isBackendSystem
+                    ? "max-w-[88%] rounded-xl border border-blue-200 bg-blue-50 text-slate-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100/80"
+                    : msg.isSystem
+                      ? "max-w-[88%] rounded-xl border border-blue-100 bg-white text-slate-600 shadow-sm dark:border-white/8 dark:bg-white/5 dark:text-white/55"
+                      : msg.sender === "user"
+                        ? "max-w-[76%] rounded-2xl rounded-br-md bg-blue-600 shadow-sm"
+                        : msg.isUnread
+                          ? "max-w-[76%] rounded-2xl rounded-bl-md border border-blue-200 bg-white text-slate-800 shadow-sm ring-2 ring-blue-100 dark:border-blue-500/30 dark:bg-[#0f1420] dark:text-white/80 dark:ring-blue-500/10"
+                          : "max-w-[76%] rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-white/8 dark:bg-white/8 dark:text-white/70"
+                  }`}
+                  style={msg.sender === "user" && !msg.isSystem ? { color: "#ffffff" } : undefined}
+                >
                   {msg.isBackendSystem && (
                     <div className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">System update</div>
                   )}
@@ -349,8 +369,8 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
                   {msg.isUnread && (
                     <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-slate-50 bg-blue-500 dark:border-[#08090e]" />
                   )}
-                  <p className={`whitespace-pre-line ${msg.sender === "user" && !msg.isSystem ? "text-white" : ""}`}>{msg.text}</p>
-                  <div className={`mt-1.5 text-right text-[9px] opacity-55 ${msg.sender === "user" && !msg.isSystem ? "text-white" : ""}`}>{fmtTime(msg.createdAt)}</div>
+                  <p className="whitespace-pre-line">{msg.text}</p>
+                  <div className="mt-1.5 text-right text-[9px] opacity-55">{fmtTime(msg.createdAt)}</div>
                 </div>
               </div>
             </React.Fragment>

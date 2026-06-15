@@ -4,8 +4,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import {
   ChevronRight, ChevronDown, Box, Folder, FileText, BookOpen, HelpCircle,
-  Search, X, ArrowLeft, Package, Loader2, ChevronLeft, File, CheckSquare, Square,
-  FileSpreadsheet, FileImage, MessageCircle, Plus, Ticket, ExternalLink, ClipboardList, Layers,
+  Search, X, ArrowLeft, Package, Loader2, ChevronLeft, File,
+  FileSpreadsheet, FileImage, Ticket, ExternalLink, ClipboardList, Layers, Stethoscope,
 } from "lucide-react";
 import {
   fetchProductCatalog, fetchTroubleshootingByProduct, fetchOrdersList,
@@ -15,6 +15,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useAbility } from "@/providers/AbilityProvider";
 import { GlbViewerDark, type DarkHotspot } from "@/components/GlbViewerDark";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
+import { TroubleshootingAssistant } from "@/components/TroubleshootingAssistant";
 import { fuzzyAny } from "@/lib/search";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -162,27 +163,66 @@ function Connector({ depth, isLast }: { depth: number; isLast: boolean }) {
 // ---------------------------------------------------------------------------
 function FaqAccordion({ items }: { items: TroubleshootingDesignNode["faq_items"] }) {
   const [open, setOpen] = useState<string>("");
-  return (
-    <div className="p-6 space-y-2 overflow-y-auto h-full">
-      <h3 className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest mb-4">Frequently Asked Questions</h3>
-      {items.map(faq => (
-        <div key={faq.id} className="border border-slate-200 dark:border-white/8 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setOpen(o => o === faq.id ? "" : faq.id)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-100 dark:bg-white/5 transition"
-          >
-            <span className="text-xs font-mono text-amber-400/90 font-semibold leading-snug pr-4">{faq.question}</span>
-            {open === faq.id
-              ? <ChevronDown className="h-3.5 w-3.5 text-slate-600 dark:text-white/30 shrink-0" />
-              : <ChevronRight className="h-3.5 w-3.5 text-slate-600 dark:text-white/30 shrink-0" />}
-          </button>
-          {open === faq.id && (
-            <div className="px-4 pb-4 border-t border-slate-200 dark:border-white/5">
-              <p className="text-[11px] font-mono text-slate-600 dark:text-white/50 leading-relaxed mt-3">{stripHtml(faq.answer)}</p>
-            </div>
-          )}
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 flex items-center justify-center">
+          <HelpCircle className="w-5 h-5 text-slate-400 dark:text-white/20" />
         </div>
-      ))}
+        <p className="text-xs font-mono text-slate-500 dark:text-white/30">No FAQs for this component</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-3.5 border-b border-slate-200 dark:border-white/8 flex items-center gap-2 shrink-0">
+        <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
+        <span className="text-xs font-semibold text-slate-700 dark:text-white/70">Frequently Asked Questions</span>
+        <span className="ml-auto text-[10px] font-mono bg-slate-100 dark:bg-white/8 text-slate-500 dark:text-white/35 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/8">
+          {items.length}
+        </span>
+      </div>
+
+      {/* Items */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+        {items.map((faq, idx) => {
+          const isOpen = open === faq.id;
+          return (
+            <div
+              key={faq.id}
+              className={`rounded-xl border transition-all ${
+                isOpen
+                  ? "border-blue-300 dark:border-blue-500/30 bg-blue-50/40 dark:bg-blue-500/5 shadow-sm"
+                  : "border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/15"
+              }`}
+            >
+              <button
+                onClick={() => setOpen(o => o === faq.id ? "" : faq.id)}
+                className="w-full flex items-start gap-3 px-4 py-3.5 text-left"
+              >
+                <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold mt-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                  {idx + 1}
+                </span>
+                <span className={`flex-1 text-xs font-semibold leading-snug pr-2 transition-colors ${isOpen ? "text-blue-700 dark:text-blue-300" : "text-slate-800 dark:text-white/75"}`}>
+                  {faq.question}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 mt-0.5 transition-transform text-slate-400 dark:text-white/25 ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 pl-12">
+                  <div className="h-px bg-blue-200 dark:bg-blue-500/20 mb-3" />
+                  <p className="text-xs text-slate-600 dark:text-white/55 leading-relaxed">
+                    {stripHtml(faq.answer)}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -234,7 +274,6 @@ function DocViewer({ src, fileName, faqItems }: {
       <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
         {(() => { const { Icon, cls } = fileIcon(fileName); return <Icon className={`h-3.5 w-3.5 ${cls}`} />; })()}
         <span className="text-xs font-mono text-slate-600 dark:text-white/50 truncate flex-1">{fileName}</span>
-        <a href={src} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
       </div>
       <div className="flex-1 overflow-hidden">
         <iframe key={src} src={src} className="w-full h-full border-0 bg-white" title={fileName} />
@@ -312,22 +351,9 @@ export default function TroubleshootingPage() {
   // Sidebar collapse
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Right panel: "3d" | "chat"
-  const [rightPanel, setRightPanel] = useState<"3d" | "chat">("3d");
-
-  // Gemini AI chat state
-  type ChatMsg = { role: "user" | "assistant"; text: string; id: string };
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatStarted, setChatStarted] = useState(false);
-  const [chatFinished, setChatFinished] = useState(false);
-  const [chatNeedsTicket, setChatNeedsTicket] = useState(false);
-  const [chatResolved, setChatResolved] = useState(false);
-  const [chatFaqIndex, setChatFaqIndex] = useState(0);
-  const [chatWaitingForResolution, setChatWaitingForResolution] = useState(false);
   const [addTicketOpen, setAddTicketOpen] = useState(false);
+  const [jitterOpen, setJitterOpen] = useState(false);
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
-  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Auth guard is handled globally by DashboardLayout
 
@@ -710,97 +736,6 @@ export default function TroubleshootingPage() {
     return node?.faq_items ?? null;
   }, [activeFaqNodeKey, nodeByKey]);
 
-  // Auto-scroll chat
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, chatLoading]);
-
-  // Reset chat when product changes
-  useEffect(() => {
-    setChatMessages([]);
-    setChatStarted(false);
-    setRightPanel("3d");
-  }, [selectedProductId]);
-
-  const startChat = () => {
-    const product = products.find(p => p.id === selectedProductId);
-    const faqs = activeGlbNode?.faq_items ?? [];
-    setChatFaqIndex(0);
-    setChatFinished(false);
-    setChatNeedsTicket(false);
-    setChatResolved(false);
-    setChatWaitingForResolution(false);
-    const intro = `Self  Troubleshoot AI assistant for ${product?.product_name ?? "this product"}${activeGlbNode ? ` / ${activeGlbNode.design_name}` : ""}.`;
-    const first = faqs[0]
-      ? `${intro}\n\n${stripHtml(faqs[0].question)}`
-      : `${intro}\n\nThere are no guided checks for this component. Raise a ticket?`;
-    setChatFinished(faqs.length === 0);
-    setChatNeedsTicket(faqs.length === 0);
-    setChatMessages([{ role: "assistant", text: first, id: "welcome" }]);
-    setChatStarted(true);
-  };
-
-  const askNextChatQuestion = async (nextIndex: number, prefix: string) => {
-    const faqs = activeGlbNode?.faq_items ?? [];
-    if (nextIndex >= faqs.length) {
-      setChatFinished(true);
-      setChatMessages(prev => [...prev, {
-        role: "assistant",
-        text: `${prefix}\n\nWe have explored all guided checks. Is your issue resolved?`,
-        id: `done-${Date.now()}`,
-      }]);
-      return;
-    }
-    setChatLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 350));
-    setChatFaqIndex(nextIndex);
-    setChatMessages(prev => [...prev, {
-      role: "assistant",
-      text: `${prefix}\n\n${stripHtml(faqs[nextIndex].question)}`,
-      id: `q-${nextIndex}-${Date.now()}`,
-    }]);
-    setChatLoading(false);
-  };
-
-  const handleChatResponse = async (response: "Yes" | "No") => {
-    if (chatLoading || chatResolved) return;
-    const faqs = activeGlbNode?.faq_items ?? [];
-    setChatMessages(prev => [...prev, { role: "user", text: response, id: `u-${Date.now()}` }]);
-    if (chatNeedsTicket) {
-      if (response === "Yes") setAddTicketOpen(true);
-      return;
-    }
-    if (chatFinished) {
-      if (response === "Yes") {
-        setChatResolved(true);
-        setChatMessages(prev => [...prev, { role: "assistant", text: "Issue marked resolved.", id: `resolved-${Date.now()}` }]);
-      } else {
-        setChatNeedsTicket(true);
-        setChatMessages(prev => [...prev, { role: "assistant", text: "Raise a ticket so the selected faulty components and context can be reviewed.", id: `ticket-${Date.now()}` }]);
-      }
-      return;
-    }
-    if (chatWaitingForResolution) {
-      setChatWaitingForResolution(false);
-      if (response === "Yes") {
-        setChatResolved(true);
-        setChatMessages(prev => [...prev, { role: "assistant", text: "Issue marked resolved.", id: `resolved-${Date.now()}` }]);
-      } else {
-        await askNextChatQuestion(chatFaqIndex + 1, "Okay, checking the next likely cause.");
-      }
-      return;
-    }
-    if (response === "Yes") {
-      setChatLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 350));
-      const answer = stripHtml(faqs[chatFaqIndex]?.answer ?? "Follow the documented inspection step for this component.");
-      setChatMessages(prev => [...prev, { role: "assistant", text: `${answer}\n\nDid this resolve the issue?`, id: `a-${Date.now()}` }]);
-      setChatWaitingForResolution(true);
-      setChatLoading(false);
-    } else {
-      await askNextChatQuestion(chatFaqIndex + 1, "It does not seem to be this problem.");
-    }
-  };
 
   if (authLoading) {
     return (
@@ -893,14 +828,14 @@ export default function TroubleshootingPage() {
             );
           })}
           {selectedParts.size > 0 && (
-            <div className="ml-auto flex items-center gap-1.5 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/25 rounded px-2 py-1 shrink-0">
-              <span className="text-[10px] font-mono text-violet-600 dark:text-violet-300">{selectedParts.size} part{selectedParts.size > 1 ? "s" : ""}</span>
-              <button onClick={() => setSelectedParts(new Set())} className="text-violet-400/50 hover:text-violet-500 dark:hover:text-violet-300 transition" title="Clear">
+            <div className="ml-auto flex items-center gap-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 rounded px-2 py-1 shrink-0">
+              <span className="text-[10px] font-mono text-blue-700 dark:text-blue-300">{selectedParts.size} part{selectedParts.size > 1 ? "s" : ""}</span>
+              <button onClick={() => setSelectedParts(new Set())} className="text-blue-400/60 hover:text-blue-600 dark:hover:text-blue-300 transition" title="Clear">
                 <X className="h-3 w-3" />
               </button>
               <button
                 onClick={() => setAddTicketOpen(true)}
-                className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-mono font-semibold px-2 py-0.5 rounded transition"
               >
                 <Ticket className="h-3 w-3" />
                 Raise Ticket
@@ -1020,7 +955,7 @@ export default function TroubleshootingPage() {
                     return (
                       <div
                         key={`${item.key}-${idx}`}
-                        className={`relative flex items-center gap-1.5 py-1.5 transition-colors select-none text-xs font-mono ${isPartSelected ? "bg-violet-500/10 border-l-2 border-violet-500" :
+                        className={`relative flex items-center gap-1.5 py-1.5 transition-colors select-none text-xs font-mono ${isPartSelected ? "bg-blue-500/10 border-l-2 border-blue-500" :
                             isActive ? `${color.badgeBg} border-l-2 ${item.kind === "node" ? "border-" + (color.icon.split("-")[1]) + "-500" : ""}` : color.row
                           }`}
                         style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
@@ -1050,7 +985,7 @@ export default function TroubleshootingPage() {
                             ? <Folder className={`h-3 w-3 shrink-0 ${color.icon}`} />
                             : <Box className={`h-3 w-3 shrink-0 ${color.icon}`} />
                           }
-                          <span className={`flex-1 truncate ${isPartSelected ? "text-violet-300 font-semibold" : isActive ? "text-slate-900 dark:text-white font-semibold" : "text-slate-600 dark:text-white/65"}`}>
+                          <span className={`flex-1 truncate ${isPartSelected ? "text-blue-700 dark:text-blue-300 font-semibold" : isActive ? "text-slate-900 dark:text-white font-semibold" : "text-slate-600 dark:text-white/65"}`}>
                             {item.node.design_name || item.node.design_id}
                           </span>
                         </button>
@@ -1130,7 +1065,7 @@ export default function TroubleshootingPage() {
                           }
                         }}
                         className={`h-3 w-3 shrink-0 flex items-center justify-center rounded-full ${owner && selectedParts.has(owner.design_version_id || owner.design_uuid)
-                            ? "bg-violet-500/30 text-violet-200"
+                            ? "bg-blue-500/25 text-blue-300"
                             : "hover:bg-slate-100 dark:bg-white/10"
                           }`}
                         title={owner ? "Add this component to ticket" : undefined}
@@ -1172,9 +1107,6 @@ export default function TroubleshootingPage() {
                 <span className="text-[10px] font-mono text-slate-600 dark:text-white/30 uppercase tracking-widest truncate flex-1">
                   {activeFaqItems ? "FAQs" : activeDocName ?? "Document Viewer"}
                 </span>
-                {activeDocSrc && (
-                  <a href={activeDocSrc} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-blue-400 hover:text-blue-300 uppercase tracking-wide shrink-0">Open ↗</a>
-                )}
               </div>
               <div className="flex-1 overflow-hidden">
                 <DocViewer src={activeDocSrc} fileName={activeDocName} faqItems={activeFaqItems} />
@@ -1185,107 +1117,28 @@ export default function TroubleshootingPage() {
 
             {/* ── RIGHT: 3D GLB VIEWER / AI CHAT ── */}
             <Panel defaultSize={50} minSize={25} className="flex flex-col bg-slate-50 dark:bg-[#06070a] overflow-hidden">
-              {/* Panel header with tabs */}
+              {/* Panel header */}
               <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 flex items-center bg-slate-50 dark:bg-[#090b10]">
-                <button
-                  onClick={() => setRightPanel("3d")}
-                  className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-slate-200 dark:border-white/5 transition ${rightPanel === "3d" ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
-                    }`}
-                >
+                <div className="h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest border-r border-slate-200 dark:border-white/5 text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5">
                   <Box className="h-3 w-3" />
                   {activeGlbNode ? activeGlbNode.design_name.slice(0, 20) : "3D Viewer"}
-                </button>
-                <button
-                  onClick={() => { setRightPanel("chat"); if (!chatStarted) startChat(); }}
-                  className={`h-full px-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest transition ${rightPanel === "chat" ? "text-violet-400 bg-violet-500/10" : "text-slate-600 dark:text-white/30 hover:text-slate-600 dark:text-white/60"
-                    }`}
-                >
-                  <MessageCircle className="h-3 w-3" />
-                  AI Troubleshoot
-                </button>
-                {rightPanel === "3d" && hotspots.length > 0 && (
-                  <span className="ml-auto px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
+                </div>
+                {hotspots.length > 0 && (
+                  <span className="px-3 text-[9px] font-mono text-violet-400/60">{hotspots.length} sub-parts</span>
                 )}
               </div>
 
               {/* 3D viewer */}
-              {rightPanel === "3d" && (
-                <div className="flex-1 min-h-0">
-                  <GlbViewerDark
-                    src={activeGlbSrc}
-                    hotspots={hotspots}
-                    canGoBack={glbHistory.length > 0}
-                    onBack={handleGlbBack}
-                    onAddActive={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey) ? () => togglePartSelect(activeGlbNodeKey) : undefined}
-                    isActiveAdded={true}
-                  />
-                </div>
-              )}
-
-              {/* AI Chat */}
-              {rightPanel === "chat" && (
-                <div className="flex-1 min-h-0 flex flex-col">
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#08090e]">
-                  {chatMessages.length === 0 && (
-                    <div className="text-center text-slate-600 dark:text-white/20 text-xs font-mono mt-12">Starting session…</div>
-                  )}
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[85%] px-4 py-2.5 text-xs font-mono leading-relaxed rounded-2xl whitespace-pre-line ${msg.role === "user"
-                          ? "bg-violet-600 text-slate-900 dark:text-white rounded-br-sm"
-                          : "bg-slate-100 dark:bg-white/8 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/8 rounded-bl-sm"
-                        }`}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  ))}
-                  {chatLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-slate-100 dark:bg-white/8 border border-slate-200 dark:border-white/8 px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/30 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </div>
-                    </div>
-                  )}
-                  <div ref={chatBottomRef} />
-                </div>
-
-                {/* Raise ticket bar */}
-                <div className="px-4 py-2 border-t border-slate-200 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-[#090b10]">
-                  <span className="text-[9px] font-mono text-slate-600 dark:text-white/20">
-                    AI · {products.find(p => p.id === selectedProductId)?.product_name ?? "Product"}
-                  </span>
-                  <button
-                    onClick={() => setAddTicketOpen(true)}
-                    className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400 hover:text-amber-300 transition"
-                  >
-                    <Ticket className="h-3 w-3" />
-                    Raise Ticket
-                  </button>
-                </div>
-
-                {/* Yes / No input */}
-                <div className="border-t border-slate-200 dark:border-white/5 px-3 py-2.5 flex items-center justify-end gap-2 bg-slate-50 dark:bg-[#090b10]">
-                  {chatNeedsTicket ? (
-                    <button
-                      onClick={() => setAddTicketOpen(true)}
-                      className="rounded bg-amber-500 px-3 py-2 text-xs font-mono font-semibold text-black transition hover:bg-amber-400"
-                    >
-                      Raise Ticket
-                    </button>
-                  ) : chatResolved ? (
-                    <span className="text-xs font-mono text-emerald-300">Resolved</span>
-                  ) : (
-                    <>
-                      <button onClick={() => handleChatResponse("No")} disabled={chatLoading} className="rounded border border-slate-200 dark:border-white/10 px-4 py-2 text-xs font-mono text-slate-600 dark:text-white/55 transition hover:bg-slate-100 dark:bg-white/5 disabled:opacity-40">No</button>
-                      <button onClick={() => handleChatResponse("Yes")} disabled={chatLoading} className="rounded bg-violet-600 px-4 py-2 text-xs font-mono font-semibold text-slate-900 dark:text-white transition hover:bg-violet-500 disabled:opacity-40">Yes</button>
-                    </>
-                  )}
-                </div>
+              <div className="flex-1 min-h-0">
+                <GlbViewerDark
+                  src={activeGlbSrc}
+                  hotspots={hotspots}
+                  canGoBack={glbHistory.length > 0}
+                  onBack={handleGlbBack}
+                  onAddActive={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey) ? () => togglePartSelect(activeGlbNodeKey) : undefined}
+                  isActiveAdded={true}
+                />
               </div>
-            )}
             </Panel>
           </Group>
 
@@ -1302,6 +1155,28 @@ export default function TroubleshootingPage() {
         initialOrderLabel={selectedOrderCtx?.order_id ?? orderRef ?? undefined}
         initialProductLabel={selectedProduct?.product_name ?? undefined}
         selectedPartNodes={selectedPartNodes}
+      />
+
+      {/* Jitter FAB */}
+      {hasContext && (
+        <button
+          onClick={() => setJitterOpen(true)}
+          title="Open Jitter AI Assistant"
+          className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-200 hover:scale-110 active:scale-95"
+          style={{
+            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+            boxShadow: "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(0,0,0,0.25)",
+          }}
+        >
+          <Stethoscope className="w-6 h-6 text-white" />
+        </button>
+      )}
+
+      <TroubleshootingAssistant
+        isOpen={jitterOpen}
+        onClose={() => setJitterOpen(false)}
+        faqs={activeGlbNode?.faq_items ?? []}
+        onRaiseTicket={() => setAddTicketOpen(true)}
       />
     </div>
   );

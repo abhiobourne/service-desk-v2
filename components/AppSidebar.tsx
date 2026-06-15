@@ -30,13 +30,17 @@ function SidebarInner() {
         key={label}
         onClick={onClick}
         title={collapsed ? label : undefined}
-        className={`w-full flex items-center rounded-md text-xs font-mono tracking-wider transition-all duration-150 uppercase ${
+        className={`w-full flex items-center rounded-md text-xs tracking-wider transition-all duration-150 uppercase ${
           collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3"
         } ${
           active
-            ? "bg-blue-600 text-white shadow-[0_0_12px_#2563eb33]"
-            : "text-white/60 hover:text-white hover:bg-white/5"
+            ? "bg-[#2D6CFA] shadow-[0_0_12px_#2D6CFA33]"
+            : "hover:bg-white/5"
         }`}
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          color: active ? "#ffffff" : "rgba(255,255,255,0.65)",
+        }}
       >
         {icon}
         {!collapsed && <span>{label}</span>}
@@ -46,9 +50,10 @@ function SidebarInner() {
 
   return (
     <aside
-      className={`relative flex flex-col bg-[#090b10] border-r border-white/5 shrink-0 h-full transition-[width] duration-200 overflow-hidden ${
+      className={`relative flex flex-col border-r border-white/5 shrink-0 h-full transition-[width] duration-200 overflow-hidden ${
         collapsed ? "w-12" : "w-64"
       }`}
+      style={{ backgroundColor: "#090b10" }}
     >
       {/* Right-edge collapse handle — clicking the sidebar border collapses it */}
       <div
@@ -68,8 +73,8 @@ function SidebarInner() {
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <h1 className="text-[11px] font-bold tracking-wider uppercase text-white truncate">Quarkcity Medtech</h1>
-            <span className="text-[10px] font-mono text-white/50 uppercase">Service Desk</span>
+            <h1 className="text-[11px] font-bold tracking-wider uppercase truncate" style={{ color: "#ffffff", fontFamily: "Arial, Helvetica, sans-serif" }}>Quarkcity Medtech</h1>
+            <span className="text-[10px] uppercase" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Arial, Helvetica, sans-serif" }}>Service Desk</span>
           </div>
         )}
       </div>
@@ -109,7 +114,8 @@ function SidebarInner() {
         <div className="shrink-0 border-t border-white/5 p-2">
           <button
             onClick={() => setCollapsed(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded text-[10px] font-mono text-white/30 hover:text-white/60 hover:bg-white/5 transition"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded text-[10px] hover:bg-white/5 transition"
+            style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Arial, Helvetica, sans-serif" }}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
             Collapse
@@ -121,7 +127,8 @@ function SidebarInner() {
           <button
             onClick={() => setCollapsed(false)}
             title="Expand sidebar"
-            className="w-full flex items-center justify-center py-2 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition"
+            className="w-full flex items-center justify-center py-2 rounded hover:bg-white/5 transition"
+            style={{ color: "rgba(255,255,255,0.3)" }}
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>

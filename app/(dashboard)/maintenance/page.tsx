@@ -533,7 +533,7 @@ export default function MaintenancePage() {
             className="flex items-center gap-2 px-4 py-2 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-xs font-semibold rounded-lg transition shadow-[0_0_16px_rgba(45,108,250,0.2)]"
           >
             <Calendar className="w-3.5 h-3.5" />
-            Schedule Maintenance
+            Request Maintenance
           </button>
         </div>
       </div>

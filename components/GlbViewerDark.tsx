@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useMemo, useState, useRef, useEffect, useCallback } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Bounds, useGLTF, useAnimations, useProgress, Html } from "@react-three/drei";
 import * as THREE from "three";
 import {
@@ -105,27 +105,35 @@ function Model({
   );
 }
 
-function AnimatedGlow() {
-  const cyanRef = useRef<THREE.PointLight>(null);
-  const purpleRef = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (cyanRef.current) {
-      cyanRef.current.intensity = 3 + Math.sin(t * 1.4) * 1.8;
-      cyanRef.current.color.setHSL(0.52 + Math.sin(t * 0.6) * 0.02, 1, 0.5);
+class GLBErrorBoundary extends React.Component<
+  { children: React.ReactNode; src: string | null },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidUpdate(prevProps: { src: string | null }) {
+    if (prevProps.src !== this.props.src) this.setState({ hasError: false });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-[#06070a]">
+          <Box className="w-8 h-8 text-slate-300 dark:text-white/15" />
+          <div className="text-center">
+            <p className="text-xs font-mono text-slate-500 dark:text-white/30">Failed to load 3D model</p>
+            <p className="text-[10px] font-mono text-slate-400 dark:text-white/20 mt-0.5">File may be missing or unsupported</p>
+          </div>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="text-[10px] font-mono text-blue-500 hover:text-blue-600 transition"
+          >
+            Retry
+          </button>
+        </div>
+      );
     }
-    if (purpleRef.current) {
-      purpleRef.current.intensity = 1.2 + Math.sin(t * 0.9 + 1.2) * 0.8;
-    }
-  });
-
-  return (
-    <>
-      <pointLight ref={cyanRef} position={[0, 0.4, 0.3]} color="#00e5ff" intensity={3} distance={5} decay={2} />
-      <pointLight ref={purpleRef} position={[0, -0.3, 0.5]} color="#7c3aed" intensity={1.5} distance={4} decay={2} />
-    </>
-  );
+    return this.props.children;
+  }
 }
 
 function ProgressOverlay() {
@@ -229,26 +237,27 @@ export function GlbViewerDark({
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={{ backgroundColor: bgColor }}>
-      <Canvas
-        key={src}
-        camera={{ position: [0, 0, 5], fov: 45 }}
-        style={{ width: "100%", height: "100%", background: bgColor }}
-      >
-        <color attach="background" args={[bgColor]} />
-        <ambientLight intensity={0.9} />
-        <directionalLight position={[5, 10, 5]} intensity={1.4} castShadow />
-        <directionalLight position={[-5, -5, -5]} intensity={0.3} />
-        <pointLight position={[0, 5, 0]} intensity={0.5} />
-        <Environment preset="studio" />
-        <AnimatedGlow />
-        <Suspense fallback={null}>
-          <Bounds key={src} fit clip margin={1.25}>
-            <Model src={src} hotspots={hotspots} wireframe={wireframe} animate={autoRotate} />
-          </Bounds>
-        </Suspense>
-        {showGrid && <gridHelper args={[20, 20, "#1a1a2e", "#0d0d1a"]} />}
-        <OrbitControlsWrapper onMount={handleOrbitMount} />
-      </Canvas>
+      <GLBErrorBoundary src={src}>
+        <Canvas
+          key={src}
+          camera={{ position: [0, 0, 5], fov: 45 }}
+          style={{ width: "100%", height: "100%", background: bgColor }}
+        >
+          <color attach="background" args={[bgColor]} />
+          <ambientLight intensity={0.9} />
+          <directionalLight position={[5, 10, 5]} intensity={1.4} castShadow />
+          <directionalLight position={[-5, -5, -5]} intensity={0.3} />
+          <pointLight position={[0, 5, 0]} intensity={0.5} />
+          <Environment preset="studio" />
+          <Suspense fallback={null}>
+            <Bounds key={src} fit clip margin={1.25}>
+              <Model src={src} hotspots={hotspots} wireframe={wireframe} animate={autoRotate} />
+            </Bounds>
+          </Suspense>
+          {showGrid && <gridHelper args={[20, 20, "#1a1a2e", "#0d0d1a"]} />}
+          <OrbitControlsWrapper onMount={handleOrbitMount} />
+        </Canvas>
+      </GLBErrorBoundary>
 
       <ProgressOverlay />
 

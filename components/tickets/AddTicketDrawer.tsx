@@ -50,7 +50,7 @@ function SelectField({
 }) {
   return (
     <div>
-      <label className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">
+      <label className="flex items-center gap-1.5 text-[10px] font-mono text-slate-700 uppercase tracking-widest mb-1.5">
         {label}
         {locked && <Lock className="w-2.5 h-2.5 text-slate-300" />}
       </label>
@@ -224,6 +224,14 @@ export function AddTicketDrawer({
     }).catch(() => setLoadingNodes(false));
   }, [form.product_id]);
 
+  // Pre-populate component dropdown with GLB viewer pre-selected parts when drawer opens
+  useEffect(() => {
+    if (!isOpen || selectedPartNodes.length === 0) return;
+    setForm(f => ({ ...f, component: selectedPartNodes.map(n => n.design_uuid) }));
+    setComponentNodes(selectedPartNodes);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const validate = () => {
     const e: typeof errors = {};
     if (!form.client_id) e.client_id = "Client is required";
@@ -247,11 +255,7 @@ export function AddTicketDrawer({
     if (form.reason) fd.append("reason", `<p>${form.reason}</p>`);
     fd.append("description", `<p>${form.description}</p>`);
 
-    // Merge parts from troubleshooting pre-selection AND DesignTreeSelect, deduplicated by design_uuid
-    const allPartNodes = [
-      ...selectedPartNodes,
-      ...componentNodes.filter(n => !selectedPartNodes.some(p => p.design_uuid === n.design_uuid)),
-    ];
+    const allPartNodes = componentNodes;
 
     if (allPartNodes.length > 0) {
       const productName =
@@ -325,7 +329,7 @@ export function AddTicketDrawer({
         <div className="h-14 shrink-0 border-b border-slate-100 flex items-center justify-between px-5">
           <div>
             <span className="text-sm font-semibold text-slate-900">Raise Ticket</span>
-            <p className="text-[10px] text-slate-400 mt-0.5">Submit a new service request</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Submit a new service request</p>
           </div>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 transition p-1 rounded hover:bg-slate-100">
             <X className="w-4 h-4" />
@@ -401,42 +405,23 @@ export function AddTicketDrawer({
               )}
             </div>
 
-            {/* Component / Module selector — disabled when parts pre-selected from 3D view */}
+            {/* Component / Module selector */}
             <DesignTreeSelect
-              label={selectedPartNodes.length > 0 ? "Component (pre-selected from 3D view)" : "Component (optional)"}
+              label="Component (optional)"
               nodes={designNodes}
               value={form.component}
               onChange={(uuids, nodes) => { setForm(f => ({ ...f, component: uuids })); setComponentNodes(nodes); }}
               mode="multi"
-              placeholder={selectedPartNodes.length > 0 ? `${selectedPartNodes.length} part${selectedPartNodes.length > 1 ? "s" : ""} selected from 3D view` : form.product_id ? "Select components…" : "Select product first"}
-              disabled={!form.product_id || selectedPartNodes.length > 0}
+              placeholder={form.product_id ? "Select components…" : "Select product first"}
+              disabled={!form.product_id}
               loading={loadingNodes}
             />
 
-            {/* Selected faulty parts from troubleshooting */}
-            {selectedPartNodes.length > 0 && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <p className="mb-2 text-[10px] font-mono uppercase tracking-widest text-blue-600">
-                  Faulty Components ({selectedPartNodes.length})
-                </p>
-                <div className="max-h-28 space-y-1 overflow-y-auto">
-                  {selectedPartNodes.map((node) => (
-                    <div
-                      key={node.design_version_id || node.design_uuid}
-                      className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1.5 border border-blue-100"
-                    >
-                      <span className="truncate text-[10px] font-mono text-slate-700">{node.design_name}</span>
-                      <span className="shrink-0 text-[9px] font-mono text-slate-400">{node.design_type}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Reason */}
             <div>
-              <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">
-                Reason <span className="normal-case text-slate-400">(optional)</span>
+              <label className="block text-[10px] font-mono text-slate-700 uppercase tracking-widest mb-1.5">
+                Reason <span className="normal-case text-slate-500">(optional)</span>
               </label>
               <textarea
                 rows={3}
@@ -449,7 +434,7 @@ export function AddTicketDrawer({
 
             {/* Description */}
             <div>
-              <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-mono text-slate-700 uppercase tracking-widest mb-1.5">
                 Description *
               </label>
               <textarea
@@ -466,8 +451,8 @@ export function AddTicketDrawer({
 
             {/* Attachments */}
             <div>
-              <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">
-                Attachments <span className="normal-case text-slate-400">(optional)</span>
+              <label className="block text-[10px] font-mono text-slate-700 uppercase tracking-widest mb-1.5">
+                Attachments <span className="normal-case text-slate-500">(optional)</span>
               </label>
               <MultiFileUpload
                 value={attachments}
