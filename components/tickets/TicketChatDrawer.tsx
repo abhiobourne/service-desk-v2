@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { X, SendHorizontal, Search } from "lucide-react";
+import { X, SendHorizontal, Search, Check, CheckCheck } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 import { fetchTicketCommunications } from "../../lib/api";
@@ -36,22 +36,47 @@ interface ChatMsg {
   isBackendSystem?: boolean;
 }
 
+interface TicketCommunicationMessage {
+  id?: string;
+  sender_id?: string;
+  message?: string;
+  createdAt: string;
+  is_system?: boolean;
+  type?: string;
+  metadata?: { status?: unknown } | null;
+}
+
+interface SocketError {
+  message?: string;
+}
+
+interface SendMessageAck {
+  success?: boolean;
+  message?: string;
+}
+
+function MessageReadTick({ isRead }: { isRead?: boolean }) {
+  return isRead ? <CheckCheck size={12} className="text-emerald-400" /> : <Check size={12} className="text-white/80" />;
+}
+
 export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: TicketChatDrawerProps) {
   const { user } = useAuth();
-  const [apiMessages, setApiMessages] = useState<any[]>([]);
-  const [liveMessages, setLiveMessages] = useState<any[]>([]);
+  const [apiMessages, setApiMessages] = useState<TicketCommunicationMessage[]>([]);
+  const [liveMessages, setLiveMessages] = useState<TicketCommunicationMessage[]>([]);
   const [message, setMessage] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [searchVal, setSearchVal] = useState("");
-  const [sending, setSending] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Load past messages
   useEffect(() => {
     if (!isOpen || !ticketId) return;
-    setLiveMessages([]);
-    fetchTicketCommunications(ticketId).then(setApiMessages);
+    fetchTicketCommunications(ticketId).then((messages) => {
+      setLiveMessages([]);
+      setApiMessages(messages as TicketCommunicationMessage[]);
+    });
   }, [isOpen, ticketId]);
 
   // Socket.io
@@ -67,10 +92,14 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
     });
     socketRef.current = sock;
     sock.connect();
-    sock.on("connect", () => { sock.emit("ticket:subscribe", { ticketId }); });
-    sock.on("connect_error", (err) => { console.error("[TicketChatDrawer] connect_error:", err.message); });
-    sock.on("exception", (error: any) => { toast.error(error?.message || "Something went wrong"); });
-    sock.on("ticket:message-created", (msg: any) => {
+    sock.on("connect", () => {
+      sock.emit("ticket:subscribe", { ticketId });
+    });
+    sock.on("connect_error", (err) => {
+      console.error("[TicketChatDrawer] connect_error:", err.message);
+    });
+    sock.on("exception", (error: SocketError) => { toast.error(error?.message || "Something went wrong"); });
+    sock.on("ticket:message-created", (msg: TicketCommunicationMessage) => {
       setLiveMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
@@ -82,6 +111,19 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
       socketRef.current = null;
     };
   }, [isOpen, ticketId]);
+
+  // Close search on outside click
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
+        setShowSearch(false);
+        setSearchVal("");
+      }
+    };
+    if (showSearch) document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showSearch]);
 
   // Auto-scroll
   useEffect(() => {
@@ -102,7 +144,6 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
       };
     });
 
-    // Synthetic system welcome message
     if (ticketInfo) {
       const welcome: ChatMsg = {
         sender: "agent",
@@ -135,7 +176,7 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
     socketRef.current.emit(
       "ticket:send-message",
       { ticketId, message: msgToSend, metadata: null },
-      (ack: any) => {
+      (ack: SendMessageAck | undefined) => {
         if (ack && !ack.success) {
           setMessage(msgToSend);
           toast.error(ack.message || "Failed to send message");
@@ -155,105 +196,149 @@ export function TicketChatDrawer({ isOpen, onClose, ticketId, ticketInfo }: Tick
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-50 w-1/2 min-w-[640px] max-w-[900px] h-full bg-[#090b10] border-l border-white/5 flex flex-col shadow-2xl">
-        <div className="h-12 shrink-0 border-b border-white/5 flex items-center justify-between px-4">
-          <span className="text-sm font-mono text-white/70">
-            Chat — <code className="text-violet-400">#{ticketInfo?.ticket_id ?? ticketId}</code>
-          </span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setShowSearch((v) => !v)} className="p-1.5 rounded text-white/30 hover:text-white/70 hover:bg-white/5 transition">
-              <Search className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={onClose} className="p-1.5 rounded text-white/30 hover:text-white/70 hover:bg-white/5 transition">
-              <X className="w-3.5 h-3.5" />
+    <div className="fixed inset-0 z-[10005] flex">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      {/* Drawer panel */}
+      <div className="absolute inset-y-0 right-0 flex flex-col w-full sm:w-[480px] md:w-[600px] lg:w-[750px] xl:w-[900px] bg-[#f7f7f8] shadow-2xl">
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 bg-white border-b border-slate-200 shrink-0">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 truncate">
+            #{ticketInfo?.ticket_id ?? ticketId}
+          </h2>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Search toggle */}
+            <div ref={searchContainerRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowSearch((prev) => !prev); }}
+                className={`p-2 rounded-md transition ${showSearch ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100 text-slate-600"}`}
+              >
+                <Search size={18} />
+              </button>
+            </div>
+
+            {/* Close */}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={18} />
             </button>
           </div>
         </div>
 
+        {/* Search bar */}
         {showSearch && (
-          <div className="px-4 py-2.5 border-b border-white/5 bg-[#0c0e16]">
-            <input
-              type="text"
-              value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              placeholder="Search messages…"
-              autoFocus
-              className="w-full bg-transparent border border-white/10 text-white text-xs font-mono px-3 py-1.5 rounded-lg focus:outline-none focus:border-violet-500/40 placeholder:text-white/20"
-            />
+          <div className="px-4 py-3 bg-white border-b border-slate-200 shrink-0">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search messages..."
+                value={searchVal}
+                onChange={(e) => setSearchVal(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 pr-10 text-sm text-black focus:outline-none focus:ring-2 focus:ring-[#5B6CFF]"
+                autoFocus
+              />
+              {searchVal && (
+                <button
+                  type="button"
+                  onClick={() => setSearchVal("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 py-5 bg-[#08090e] space-y-1">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-5 bg-[#f7f7f8]">
           {displayed.length === 0 && (
-            <div className="text-center text-white/20 text-xs font-mono mt-12">No messages yet</div>
+            <div className="text-center text-slate-400 text-sm mt-10">No messages found</div>
           )}
+
           {displayed.map((msg, idx) => {
             const showDay = idx === 0 || dayKey(displayed[idx - 1].createdAt) !== dayKey(msg.createdAt);
             return (
               <React.Fragment key={`${msg.id ?? "welcome"}-${idx}`}>
                 {showDay && (
-                  <div className="text-center text-[9px] font-mono text-white/25 my-3">{fmtDay(msg.createdAt)}</div>
+                  <div className="text-center text-xs text-slate-400 my-3">
+                    {fmtDay(msg.createdAt)}
+                  </div>
                 )}
-                <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
-                  <div className={`px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${
+
+                <div className={`flex mb-3 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
+                  <div className={`px-4 py-3 text-sm leading-relaxed shadow-sm ${
                     msg.isBackendSystem
-                      ? "max-w-[85%] bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-xl rounded-bl-sm"
-                      : msg.isSystem
-                      ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
+                      ? "max-w-[90%] bg-[#FFF7E8] border border-[#F6D48F] text-[#7A5B00] rounded-2xl rounded-bl-md"
                       : msg.sender === "user"
-                      ? "max-w-[70%] bg-violet-600 text-white rounded-2xl rounded-br-sm"
-                      : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
+                        ? "max-w-[75%] bg-[#5B6CFF] text-white rounded-2xl rounded-br-md"
+                        : "max-w-[75%] bg-white text-slate-700 rounded-2xl rounded-bl-md"
                   }`}>
                     {msg.isBackendSystem && (
-                      <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-amber-400/60">System</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide mb-2 text-[#A17400]">
+                        System Message
+                      </div>
                     )}
                     <p className="whitespace-pre-line">{msg.text}</p>
-                    <div className="text-[9px] mt-1.5 text-right opacity-50">{fmtTime(msg.createdAt)}</div>
+                    <div className="mt-2 flex items-center justify-end gap-1 text-[10px] opacity-70">
+                      <span>{fmtTime(msg.createdAt)}</span>
+                      {msg.sender === "user" && !msg.isSystem && <MessageReadTick />}
+                    </div>
                   </div>
                 </div>
               </React.Fragment>
             );
           })}
+
           <div ref={bottomRef} />
         </div>
 
+        {/* Footer */}
         {isClosedOrResolved ? (
-          <div className="bg-[#090b10] border-t border-white/5 px-4 py-4">
-            <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
-              <p className="text-xs font-mono text-white/40">
-                {ticketInfo?.status?.includes("resolv") ? "✓ Ticket resolved — chat disabled." : "🔒 Ticket closed — messaging disabled."}
+          <div className="bg-white border-t border-slate-200 px-4 py-4 shrink-0">
+            <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 text-center">
+              <p className="text-sm text-slate-600">
+                {ticketInfo?.status?.includes("resolv")
+                  ? <>✅ This ticket has been <span className="font-semibold">resolved</span>. Chat is disabled.</>
+                  : <>🔒 This ticket has been <span className="font-semibold">closed</span>. You cannot send messages.</>
+                }
               </p>
             </div>
           </div>
         ) : !ticketInfo?.assignee_details || (!ticketInfo.assignee_details.firstName && !ticketInfo.assignee_details.lastName) ? (
-          <div className="bg-[#090b10] border-t border-white/5 px-4 py-4">
-            <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
-              <p className="text-xs font-mono text-amber-400/60">
+          <div className="bg-white border-t border-slate-200 px-4 py-4 shrink-0">
+            <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 text-center">
+              <p className="text-sm text-slate-600">
                 ⚠️ Assign a technician to enable chat.
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-[#090b10] border-t border-white/5 px-3 py-3 flex items-center gap-2">
+          <form
+            onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+            className="bg-white border-t border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0"
+          >
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Write a message…"
-              className="flex-1 bg-white/5 rounded-full px-4 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none border border-white/5 focus:border-violet-500/30"
+              placeholder="Write a message..."
+              className="flex-1 bg-slate-100 rounded-full px-4 py-2 text-sm text-black focus:outline-none min-w-0"
             />
             <button
-              type="button"
-              onClick={sendMessage}
-              disabled={!message.trim() || sending}
-              className={`transition ${message.trim() ? "text-violet-400 hover:text-violet-300" : "text-white/20 cursor-not-allowed"}`}
+              type="submit"
+              disabled={!message.trim()}
+              className={`shrink-0 transition ${message.trim() ? "text-[#5B6CFF] hover:text-blue-700" : "text-slate-300 cursor-not-allowed"}`}
             >
-              <SendHorizontal className="w-5 h-5" />
+              <SendHorizontal size={22} />
             </button>
-          </div>
+          </form>
         )}
       </div>
     </div>
