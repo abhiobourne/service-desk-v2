@@ -156,6 +156,7 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
       const actionKey = action.toLowerCase();
 
       for (const perm of permissions) {
+        if (!perm?.name) continue;
         const [permSubject, permAction] = perm.name.toLowerCase().split(".");
         if (!permSubject || !permAction) continue;
         const subjectMatch = permSubject === subjectKey || permSubject === "all";

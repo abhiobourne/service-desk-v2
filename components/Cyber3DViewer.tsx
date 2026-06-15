@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Loader2, Maximize2, RotateCcw, Activity } from "lucide-react";
+import { useTheme } from "../providers/ThemeProvider";
 
 /**
  * Standard Error Boundary for robust GLB loading fallbacks.
@@ -61,11 +62,14 @@ export interface DynamicHotspot {
  * Dynamically streams actual ViewRay portal GLB drawings into Three.js.
  */
 function PortalGltfModel({ mode, activeGlbUrl, dynamicHotspots = [] }: { mode: string, activeGlbUrl?: string | null, dynamicHotspots?: DynamicHotspot[] }) {
+  const isBrowser = typeof window !== "undefined";
+  const baseUrl = isBrowser ? `http://${window.location.hostname}:7000/api/v1/files` : "http://127.0.0.1:7000/api/v1/files";
+
   const modelUrlMap: Record<string, string> = {
-    turbine: "http://localhost:7000/api/v1/files/1778652509459-981429694-engine_four_cylinder_low_poly__game_ready.glb",
-    mri: "http://localhost:7000/api/v1/files/1778652526973-16052661-bmw_rds_radio.glb",
-    diagnostics: "http://localhost:7000/api/v1/files/1779436322796-183340015-better_exhaust.glb",
-    "component-ordering": "http://localhost:7000/api/v1/files/1778652561181-732556382-better_gauges.glb",
+    turbine: `${baseUrl}/1778652509459-981429694-engine_four_cylinder_low_poly__game_ready.glb`,
+    mri: `${baseUrl}/1778652526973-16052661-bmw_rds_radio.glb`,
+    diagnostics: `${baseUrl}/1779436322796-183340015-better_exhaust.glb`,
+    "component-ordering": `${baseUrl}/1778652561181-732556382-better_gauges.glb`,
   };
 
   const url = activeGlbUrl || modelUrlMap[mode] || modelUrlMap.turbine;
@@ -103,7 +107,11 @@ function PortalGltfModel({ mode, activeGlbUrl, dynamicHotspots = [] }: { mode: s
     return v;
   }, [box]);
 
-  const scale = mode === "turbine" ? 1.0 : mode === "mri" ? 12 : 1.4;
+  const scale = React.useMemo(() => {
+    if (box.isEmpty()) return 1;
+    const maxDim = Math.max(size.x, size.y, size.z);
+    return maxDim > 0 ? 4.5 / maxDim : 1;
+  }, [box, size]);
   return (
     <group scale={scale} position={[0, -0.6, 0]} rotation={[0.4, 0.5, 0.2]}>
       <primitive object={clonedScene} />
@@ -383,6 +391,10 @@ export default function Cyber3DViewer({
   const [loading, setLoading] = useState(true);
   const [calibrateScale, setCalibrateScale] = useState(1);
   const [diaProgress, setDiaProgress] = useState(0.5);
+  const { theme } = useTheme();
+  const bgColor = theme === "light" ? "#f1f5f9" : "#090b10";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const orbitRef = useRef<any>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 600);
@@ -421,7 +433,7 @@ export default function Cyber3DViewer({
   }, [diagnosticActive]);
 
   return (
-    <div className="relative w-full h-full min-h-[300px] flex items-center justify-center bg-[#090b10] rounded-lg overflow-hidden border border-white/5 group shadow-inner">
+    <div ref={containerRef} className="relative w-full h-full min-h-[250px] flex items-center justify-center rounded-lg overflow-hidden border border-slate-200 dark:border-white/5 group shadow-inner" style={{ backgroundColor: bgColor }}>
       {/* Cybernetic HUD elements overlay */}
       <div className="absolute inset-0 border border-[#06b6d4]/10 pointer-events-none rounded-lg" />
       
@@ -452,7 +464,8 @@ export default function Cyber3DViewer({
         </div>
       ) : (
         <>
-          <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }}>
+          <Canvas camera={{ position: [0, 0, 7.5], fov: 45 }} style={{ background: bgColor }}>
+            <color attach="background" args={[bgColor]} />
             <ambientLight intensity={0.2} />
             <pointLight position={[10, 10, 10]} intensity={1.5} />
             <pointLight position={[-10, -10, -10]} intensity={0.5} />
@@ -484,7 +497,7 @@ export default function Cyber3DViewer({
             {mode === "turbine" && laserScanActive && <LaserSweep />}
 
 
-            <OrbitControls makeDefault enableDamping dampingFactor={0.05} minDistance={2} maxDistance={10} />
+            <OrbitControls ref={orbitRef} makeDefault enableDamping dampingFactor={0.05} minDistance={2} maxDistance={10} />
           </Canvas>
 
           {/* Quick HUD controls */}
@@ -498,17 +511,25 @@ export default function Cyber3DViewer({
           <div className="absolute bottom-3 right-3 flex items-center gap-2 z-10">
             <button
               onClick={() => {
+                if (orbitRef.current) orbitRef.current.reset();
                 if (mode === "mri") setCalibrateScale(1.8);
                 if (mode === "diagnostics") setDiaProgress(0.5);
               }}
               title="Reset Viewport"
-              className="flex h-7 w-7 items-center justify-center rounded bg-[#121620]/90 border border-white/10 hover:border-cyan-500/30 text-white/70 hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
+              className="flex h-7 w-7 items-center justify-center rounded bg-slate-100/90 dark:bg-[#121620]/90 border border-slate-300 dark:border-white/10 hover:border-cyan-500/30 text-slate-600 dark:text-white/70 hover:text-cyan-600 dark:hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
             <button
               title="Toggle Fullscreen"
-              className="flex h-7 w-7 items-center justify-center rounded bg-[#121620]/90 border border-white/10 hover:border-cyan-500/30 text-white/70 hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
+              onClick={() => {
+                if (!document.fullscreenElement) {
+                  containerRef.current?.requestFullscreen();
+                } else {
+                  document.exitFullscreen();
+                }
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded bg-slate-100/90 dark:bg-[#121620]/90 border border-slate-300 dark:border-white/10 hover:border-cyan-500/30 text-slate-600 dark:text-white/70 hover:text-cyan-600 dark:hover:text-cyan-400 hover:shadow-[0_0_10px_#06b6d422] transition duration-200 pointer-events-auto backdrop-blur"
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </button>

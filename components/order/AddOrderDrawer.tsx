@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, ShoppingCart, Minus, Plus, Trash2, Loader2, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { X, ShoppingCart, Minus, Plus, Trash2, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "../../providers/AuthProvider";
 import {
   fetchClientAddresses,
@@ -169,8 +170,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
   const [productSearch, setProductSearch] = useState("");
   const [showSearchList, setShowSearchList] = useState(false);
@@ -186,8 +185,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
-    setErrorMsg("");
-    setSuccessMsg("");
     setProductSearch("");
 
     const promises: Promise<any>[] = [fetchProductCatalog()];
@@ -377,37 +374,34 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
     );
   };
 
-  // Filter products for search selector
+  // Filter products for search selector.
+  // When query is empty show all un-carted products (up to 8); typing narrows the list.
   const filteredProducts = useMemo(() => {
     const s = productSearch.toLowerCase().trim();
-    if (!s) return [];
-    return catalog
-      .filter(
-        (p) =>
-          !cart.some((c) => c.product_id === p.id) &&
-          (p.product_name.toLowerCase().includes(s) || p.product_id.toLowerCase().includes(s))
-      )
-      .slice(0, 5);
+    const available = catalog.filter((p) => !cart.some((c) => c.product_id === p.id));
+    if (!s) return available.slice(0, 8);
+    return available
+      .filter((p) => p.product_name.toLowerCase().includes(s) || p.product_id.toLowerCase().includes(s))
+      .slice(0, 8);
   }, [catalog, productSearch, cart]);
 
   // Place order
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loggedInClientId) {
-      setErrorMsg("No authenticated client associated with your user session.");
+      toast.error("No authenticated client associated with your user session.");
       return;
     }
     if (cart.length === 0) {
-      setErrorMsg("Please add at least one product to your order.");
+      toast.error("Please add at least one product to your order.");
       return;
     }
     if (!selectedBilling || !selectedShipping) {
-      setErrorMsg("Both Billing and Shipping addresses are required.");
+      toast.error("Both Billing and Shipping addresses are required.");
       return;
     }
 
     setSubmitting(true);
-    setErrorMsg("");
 
     // Prepare design parts json
     const allSelectedParts = cart.flatMap((item) =>
@@ -441,14 +435,14 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
 
     try {
       await createInventoryOrder(payload);
-      setSuccessMsg("ORDER DISPATCHED SUCCESSFULLY!");
+      toast.success("Order dispatched successfully!");
       setCart([]);
       setTimeout(() => {
         onOrderPlaced?.();
         onClose();
       }, 1200);
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to dispatch order. Check your input.");
+      toast.error(err.message || "Failed to dispatch order. Check your input.");
     } finally {
       setSubmitting(false);
     }
@@ -472,20 +466,6 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
             <X className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Messaging bars */}
-        {errorMsg && (
-          <div className="mx-4 mt-3 px-3 py-2 rounded-lg text-xs border bg-rose-500/15 border-rose-500/30 text-rose-300 flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-        {successMsg && (
-          <div className="mx-4 mt-3 px-3 py-2 rounded-lg text-xs border bg-emerald-500/15 border-emerald-500/30 text-emerald-300 flex items-start gap-2 animate-pulse">
-            <ClipboardCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
 
         {/* Main form */}
         <form onSubmit={handlePlaceOrder} className="flex-1 flex flex-col min-h-0">
@@ -574,23 +554,30 @@ export function AddOrderDrawer({ isOpen, onClose, preSelectedParts, onOrderPlace
                   setShowSearchList(true);
                 }}
                 onFocus={() => setShowSearchList(true)}
-                placeholder="Search catalog by product name…"
+                onBlur={() => setTimeout(() => setShowSearchList(false), 150)}
+                placeholder="Search or click to browse products…"
                 className="w-full h-10 bg-[#0c0e16] border border-white/10 text-xs text-white px-3 rounded-lg focus:outline-none focus:border-cyan-400/40 placeholder:text-white/20"
               />
 
-              {showSearchList && filteredProducts.length > 0 && (
-                <div className="absolute z-10 left-0 right-0 mt-1 bg-[#0c0e16] border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                  {filteredProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleAddProduct(p)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-white/5 border-b border-white/5 text-xs text-white flex justify-between items-center transition"
-                    >
-                      <span className="font-medium truncate">{p.product_name}</span>
-                      <span className="text-[9px] text-[#06b6d4] font-mono shrink-0">{p.product_id}</span>
-                    </button>
-                  ))}
+              {showSearchList && (
+                <div className="absolute z-10 left-0 right-0 mt-1 bg-[#0c0e16] border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleAddProduct(p)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 border-b border-white/5 last:border-0 text-xs text-white flex justify-between items-center gap-2 transition"
+                      >
+                        <span className="font-medium truncate">{p.product_name}</span>
+                        <span className="text-[9px] text-[#06b6d4] font-mono shrink-0">{p.product_id}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-3 text-[10px] font-mono text-white/30 text-center">
+                      {catalog.length === 0 ? "Loading catalog…" : "All products already added"}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

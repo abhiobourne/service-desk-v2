@@ -43,9 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<ApiClientCard[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Keep module-level token cache in sync whenever token state changes
+  // Keep module-level token cache in sync whenever token state changes.
+  // Guard against null so the initial render (token = null) never wipes
+  // the persisted token from localStorage before hydrateSession reads it.
   useEffect(() => {
-    setApiToken(token);
+    if (token !== null) setApiToken(token);
   }, [token]);
 
   // Hydrate session from localStorage on startup
