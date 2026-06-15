@@ -154,7 +154,7 @@ export default function DiagnosisModal({
             )}
 
             {/* scan badge */}
-            <div className="absolute bottom-4 left-4 pointer-events-none z-10">
+            <div className="absolute top-4 left-4 pointer-events-none z-10">
               {phase === "scanning" ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 dark:bg-[#07090e]/85 border border-cyan-200 dark:border-cyan-500/25 text-[9px] font-mono tracking-widest text-cyan-600 dark:text-cyan-400 uppercase backdrop-blur shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />

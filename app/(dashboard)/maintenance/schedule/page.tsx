@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  ChevronRight, ChevronLeft, Plus, X, Calendar, Wrench,
+  ChevronRight, ChevronLeft, ChevronDown, Check, Plus, X, Calendar, Wrench,
   AlertTriangle, CheckCircle2, Clock, RefreshCw, Zap,
   User, Tag, Timer, Layers, FileText, Cpu,
 } from "lucide-react";
@@ -116,6 +117,97 @@ function eventsByDate(events: MaintenanceEvent[]): Record<string, MaintenanceEve
     (acc[ev.scheduledDate] ??= []).push(ev);
     return acc;
   }, {});
+}
+
+// ─── Single-select custom dropdown ───────────────────────────────────────────
+
+interface SelectOption {
+  value: string;
+  label?: string;
+  prefix?: React.ReactNode;
+}
+
+function SingleSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: (SelectOption | string)[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const normalized = options.map(o =>
+    typeof o === "string" ? { value: o, label: o, prefix: undefined } : { label: o.label ?? o.value, ...o }
+  );
+  const current = normalized.find(o => o.value === value);
+
+  const openFn = () => {
+    if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
+    setOpen(v => !v);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const closeOnScroll = () => setOpen(false);
+    document.addEventListener("mousedown", close);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={openFn}
+        className={`w-full flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border ${
+          open
+            ? "border-blue-400 dark:border-blue-500/60 ring-2 ring-blue-500/20"
+            : "border-slate-200 dark:border-white/10"
+        } rounded-lg text-xs text-left text-slate-900 dark:text-white focus:outline-none transition`}
+      >
+        {current?.prefix && <span className="shrink-0">{current.prefix}</span>}
+        <span className="flex-1 min-w-0 truncate text-sm">{current?.label ?? value}</span>
+        <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-white/30 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && rect && typeof document !== "undefined" && createPortal(
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{ position: "fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 9999 }}
+          className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+          {normalized.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition text-left ${
+                opt.value === value
+                  ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold"
+                  : "text-slate-700 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5"
+              }`}
+            >
+              {opt.prefix && <span className="shrink-0">{opt.prefix}</span>}
+              <span className="flex-1">{opt.label}</span>
+              {opt.value === value && <Check className="w-3 h-3 shrink-0 text-blue-500" />}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
 }
 
 // ─── Form default ─────────────────────────────────────────────────────────────
@@ -757,25 +849,32 @@ export default function ScheduleMaintenancePage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1.5">Type</label>
-                        <select
+                        <SingleSelect
                           value={form.type}
-                          onChange={e => handleField("type", e.target.value as MaintType)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
-                        >
-                          {MAINT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                          options={MAINT_TYPES.map(t => ({
+                            value: t,
+                            label: t,
+                            prefix: <span className={`w-2 h-2 rounded-full shrink-0 ${TYPE_DOT[t]}`} />,
+                          }))}
+                          onChange={v => handleField("type", v as MaintType)}
+                        />
                       </div>
                       <div>
                         <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1.5">Priority</label>
-                        <select
+                        <SingleSelect
                           value={form.priority}
-                          onChange={e => handleField("priority", e.target.value as MaintPriority)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
-                        >
-                          {(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as MaintPriority[]).map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
+                          options={(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as MaintPriority[]).map(p => ({
+                            value: p,
+                            label: p,
+                            prefix: <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              p === "CRITICAL" ? "bg-rose-500 animate-pulse"
+                              : p === "HIGH"   ? "bg-amber-500"
+                              : p === "MEDIUM" ? "bg-blue-500"
+                              : "bg-slate-400"
+                            }`} />,
+                          }))}
+                          onChange={v => handleField("priority", v as MaintPriority)}
+                        />
                       </div>
                     </div>
 
@@ -812,23 +911,19 @@ export default function ScheduleMaintenancePage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1.5">Technician</label>
-                        <select
+                        <SingleSelect
                           value={form.technician}
-                          onChange={e => handleField("technician", e.target.value)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
-                        >
-                          {TECHNICIANS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                          options={TECHNICIANS}
+                          onChange={v => handleField("technician", v)}
+                        />
                       </div>
                       <div>
                         <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1.5">Category</label>
-                        <select
+                        <SingleSelect
                           value={form.category}
-                          onChange={e => handleField("category", e.target.value)}
-                          className="w-full px-3 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
-                        >
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                          options={CATEGORIES}
+                          onChange={v => handleField("category", v)}
+                        />
                       </div>
                     </div>
 

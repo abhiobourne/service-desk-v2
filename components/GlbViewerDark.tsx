@@ -4,6 +4,7 @@ import React, { Suspense, useMemo, useState, useRef, useEffect, useCallback } fr
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Bounds, useGLTF, useAnimations, useProgress, Html } from "@react-three/drei";
 import * as THREE from "three";
+import { SkeletonUtils } from "three-stdlib";
 import {
   ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus, X as XIcon,
   Maximize2, Minimize2, RotateCcw, Layers,
@@ -29,12 +30,14 @@ function Model({
   wireframe: boolean;
   animate: boolean;
 }) {
-  // Use scene directly (not cloned) so AnimationMixer can bind tracks by name
   const { scene, animations } = useGLTF(src);
+  // Clone so each Canvas has its own scene graph — avoids blank viewer when
+  // a second Canvas (e.g. DiagnosisModal) shares the same URL and unmounts.
+  const clone = useMemo(() => SkeletonUtils.clone(scene) as THREE.Group, [scene]);
   const groupRef = useRef<THREE.Group>(null!);
   const { actions } = useAnimations(animations, groupRef);
 
-  const box = useMemo(() => new THREE.Box3().setFromObject(scene), [scene]);
+  const box = useMemo(() => new THREE.Box3().setFromObject(clone), [clone]);
   const center = useMemo(() => {
     const v = new THREE.Vector3();
     return box.isEmpty() ? v : box.getCenter(v);
@@ -46,13 +49,13 @@ function Model({
 
   // Wireframe toggle
   useEffect(() => {
-    scene.traverse((child: any) => {
+    clone.traverse((child: any) => {
       if (child.isMesh) {
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         mats.forEach((mat: any) => { if (mat) mat.wireframe = wireframe; });
       }
     });
-  }, [scene, wireframe]);
+  }, [clone, wireframe]);
 
   // Play / stop embedded GLB animation clips based on animate prop
   useEffect(() => {
@@ -69,7 +72,7 @@ function Model({
 
   return (
     <group ref={groupRef}>
-      <primitive object={scene} />
+      <primitive object={clone} />
       {hotspots.map((hs, i) => {
         const total = hotspots.length;
         const angle = total <= 1 ? Math.PI / 5 : (i / total) * Math.PI * 2 - Math.PI / 2;

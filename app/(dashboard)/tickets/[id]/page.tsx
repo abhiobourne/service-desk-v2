@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -143,17 +144,23 @@ function LifecycleCard({
   const currentTech   = assignmentHistory[assignmentHistory.length - 1]?.name ?? null;
 
   const [historyOpen, setHistoryOpen] = useState(false);
-  const histPopupRef = useRef<HTMLDivElement>(null);
+  const [histRect, setHistRect] = useState<DOMRect | null>(null);
+  const histBtnRef = useRef<HTMLButtonElement>(null);
 
+  const openHistory = useCallback(() => {
+    if (histBtnRef.current) setHistRect(histBtnRef.current.getBoundingClientRect());
+    setHistoryOpen(o => !o);
+  }, []);
+
+  // Close popup on outside click
   useEffect(() => {
     if (!historyOpen) return;
-    function onOutside(e: MouseEvent) {
-      if (histPopupRef.current && !histPopupRef.current.contains(e.target as Node)) {
-        setHistoryOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+    const close = (e: MouseEvent) => {
+      if (histBtnRef.current?.contains(e.target as Node)) return;
+      setHistoryOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, [historyOpen]);
 
   const SHOW_MAX    = 3;
@@ -240,8 +247,9 @@ function LifecycleCard({
                     )}
                     {assignmentHistory.length > 1 && (
                       <button
+                        ref={histBtnRef}
                         type="button"
-                        onClick={() => setHistoryOpen((o) => !o)}
+                        onClick={openHistory}
                         className="text-[9px] text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 underline underline-offset-2 transition-colors font-medium"
                       >
                         history
@@ -261,56 +269,61 @@ function LifecycleCard({
         })}
       </div>
 
-      {historyOpen && assignmentHistory.length > 1 && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} />
-          <div
-            ref={histPopupRef}
-            className="absolute left-[calc(3/7*100%)] -translate-x-1/2 top-full mt-2 z-50 w-72 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0c0e16] shadow-2xl overflow-hidden"
-          >
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-white/5">
-              <p className="text-[9px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest">
-                Assignment History
-              </p>
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="text-slate-400 dark:text-white/30 hover:text-slate-700 dark:hover:text-white/60 transition-colors text-base leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-64 overflow-y-auto">
-              {[...assignmentHistory].reverse().map((entry, i) => {
-                const isCurrent = i === 0;
-                const d = new Date(entry.createdAt);
-                return (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${avatarBg(entry.name)}`}>
-                      {initials(entry.name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-semibold truncate ${
-                        isCurrent ? "text-slate-800 dark:text-slate-200" : "text-slate-400 dark:text-slate-500 line-through"
-                      }`}>
-                        {entry.name}
-                      </p>
-                      <p className="text-[10px] font-mono text-slate-400 dark:text-slate-600 mt-px">
-                        {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                        {" · "}
-                        {d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    {isCurrent && (
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide shrink-0">
-                        Current
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+      {historyOpen && assignmentHistory.length > 1 && histRect && createPortal(
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: histRect.bottom + 8,
+            left: Math.max(8, histRect.left + histRect.width / 2 - 144),
+            width: 288,
+            zIndex: 9999,
+          }}
+          className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0c0e16] shadow-2xl overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-white/5">
+            <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Assignment History
+            </p>
+            <button
+              onClick={() => setHistoryOpen(false)}
+              className="text-slate-400 dark:text-white/30 hover:text-slate-700 dark:hover:text-white/60 transition-colors text-base leading-none px-1"
+            >
+              ×
+            </button>
           </div>
-        </>
+          <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-64 overflow-y-auto">
+            {[...assignmentHistory].reverse().map((entry, i) => {
+              const isCurrent = i === 0;
+              const d = new Date(entry.createdAt);
+              return (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${avatarBg(entry.name)}`}>
+                    {initials(entry.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold truncate ${
+                      isCurrent ? "text-slate-800 dark:text-slate-200" : "text-slate-400 dark:text-slate-500 line-through"
+                    }`}>
+                      {entry.name}
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-400 dark:text-slate-600 mt-px">
+                      {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      {" · "}
+                      {d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  {isCurrent && (
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide shrink-0">
+                      Current
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
