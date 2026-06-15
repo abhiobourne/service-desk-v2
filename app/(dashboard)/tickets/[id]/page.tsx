@@ -725,6 +725,7 @@ export default function TicketDetailPage() {
         setAssignmentHistory(
           parseAssignmentHistory(messages as TicketCommunicationMessage[]),
         );
+        setTicketMessages(messages);
       }
     });
 
