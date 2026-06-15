@@ -385,9 +385,7 @@ function PartsTable({ parts }: { parts: NonNullable<OrderTicket["parts"]> }) {
                   <td className="px-3 py-2.5">
                     {p.troubleshooting_url ? (
                       <a
-                        href={p.troubleshooting_url
-                          .replace(/https?:\/\/(localhost|127\.0\.0\.1):\d+/, typeof window !== "undefined" ? window.location.origin : "")
-                          .replace("/troubleshooting/", "/diagnostics/troubleshooting/")}
+                        href={p.troubleshooting_url}
                         target="_blank" rel="noreferrer"
                         className="text-[10px] font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                       >View →</a>
@@ -1099,14 +1097,15 @@ export default function TicketDetailPage() {
                 </GlassPanel>
 
                 {/* Right col: Attachments */}
-                <GlassPanel className="flex flex-col">
-                  <div className="p-5 space-y-3 flex-1 overflow-y-auto">
-                    <div className="flex items-center gap-2">
+                <GlassPanel className="flex flex-col h-full">
+                  <div className="p-5 flex flex-col h-full gap-4">
+                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-white/5 shrink-0">
                       <ImageIcon className="w-3.5 h-3.5 text-slate-400 dark:text-white/30" />
                       <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Attachments</h3>
                     </div>
+
                     {attachmentUrls.length > 0 ? (
-                      <div className="overflow-y-auto max-h-[420px] pr-1">
+                      <div className="overflow-y-auto pr-1" style={{ maxHeight: "316px" }}>
                         <div className="grid grid-cols-2 gap-2">
                           {attachmentUrls.map((url, i) => {
                             const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(url);
@@ -1115,22 +1114,22 @@ export default function TicketDetailPage() {
                               <div
                                 key={i}
                                 onClick={() => setPreviewUrl(url)}
-                                className="relative group cursor-pointer h-[120px] rounded-lg border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 hover:border-blue-300 dark:hover:border-blue-500/30 transition overflow-hidden flex items-center justify-center"
+                                className="relative group cursor-pointer h-[154px] rounded-lg border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 hover:border-slate-300 dark:hover:border-white/15 transition overflow-hidden flex items-center justify-center"
                               >
                                 {isImage ? (
                                   <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
                                 ) : (() => {
                                   const { Icon, label, bg, ic, badge } = getFileTypeInfo(url);
                                   return (
-                                    <div className={`flex flex-col items-center justify-center gap-1.5 w-full h-full p-2 ${bg}`}>
-                                      <Icon className={`w-6 h-6 ${ic}`} />
-                                      <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border ${badge}`}>{label}</span>
-                                      <span className="text-[8px] font-mono text-slate-400 dark:text-white/30 truncate w-full text-center px-1">{fileName}</span>
+                                    <div className={`flex flex-col items-center justify-center gap-2 w-full h-full p-3 ${bg}`}>
+                                      <Icon className={`w-8 h-8 ${ic}`} />
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badge}`}>{label}</span>
+                                      <span className="text-[10px] font-mono text-slate-400 dark:text-white/30 truncate w-full text-center px-1">{fileName}</span>
                                     </div>
                                   );
                                 })()}
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition">
-                                  <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                                  <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                               </div>
                             );
@@ -1138,9 +1137,9 @@ export default function TicketDetailPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center h-[200px] rounded-lg border border-dashed border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/2 gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center">
-                          <ImageIcon className="w-4 h-4 text-slate-400 dark:text-white/15" />
+                      <div className="flex flex-col items-center justify-center flex-1 rounded-lg gap-3 border border-dashed border-slate-200 dark:border-white/8">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-100 dark:bg-white/5">
+                          <ImageIcon className="w-5 h-5 text-slate-400 dark:text-white/30" />
                         </div>
                         <p className="text-sm text-slate-400 dark:text-slate-500">No attachments</p>
                       </div>
@@ -1178,11 +1177,11 @@ export default function TicketDetailPage() {
       {/* ── Attachment preview modal ── */}
       {previewUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.75)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
         >
-          <div className="bg-white dark:bg-[#090b10] border border-slate-200 dark:border-white/8 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-[#090b10] border border-slate-200 dark:border-white/8 rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="h-12 shrink-0 border-b border-slate-100 dark:border-white/5 flex items-center justify-between px-4">
               <span className="text-xs font-mono text-slate-600 dark:text-white/50 truncate flex-1">
                 {previewUrl.split("/").pop()}
@@ -1202,7 +1201,7 @@ export default function TicketDetailPage() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden flex items-center justify-center bg-slate-100 dark:bg-[#06070a] p-4 min-h-[400px]">
+            <div className="flex-1 min-h-0 overflow-hidden bg-slate-100 dark:bg-[#06070a]">
               {renderPreview(previewUrl)}
             </div>
           </div>
