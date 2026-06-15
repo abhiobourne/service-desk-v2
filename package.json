@@ -9,12 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@casl/ability": "^7.0.0",
+    "@casl/react": "^7.0.0",
     "@google/generative-ai": "^0.24.1",
     "@heyputer/puter.js": "^2.5.3",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@types/markdown-it": "^14.1.2",
     "@types/three": "^0.184.1",
+    "antd": "^6.4.4",
+    "dayjs": "^1.11.21",
     "docx-preview": "^0.3.7",
     "lucide-react": "^1.16.0",
     "markdown-it": "^14.2.0",

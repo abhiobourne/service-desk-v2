@@ -633,11 +633,10 @@ export async function fetchUnreadNotifications(): Promise<any[]> {
     const res = await fetch(`${API_BASE_URL}/ticket-communication/unread`, {
       headers: authHeaders(),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data : [];
-  } catch (error) {
-    console.error("[fetchUnreadNotifications] err", error);
+  } catch {
     return [];
   }
 }

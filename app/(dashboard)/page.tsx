@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAbility } from "@/providers/AbilityProvider";
+import { UpcomingAppointments } from "@/components/dashboard/UpcomingAppointments";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
@@ -460,7 +461,7 @@ function DashboardInner() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
           {/* Left: Recent Tickets */}
-          <div className="lg:col-span-2 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
+          <div className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-2">
                 <Ticket className="w-3.5 h-3.5 text-blue-500" />
@@ -528,6 +529,9 @@ function DashboardInner() {
               </div>
             )}
           </div>
+
+          {/* Centre: Upcoming Maintenance */}
+          <UpcomingAppointments />
 
           {/* Right: Quick Navigation + System Health */}
           <div className="space-y-5">

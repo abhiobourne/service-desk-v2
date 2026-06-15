@@ -1,94 +1,514 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Wrench, Calendar, CheckCircle2, AlertTriangle, Clock,
-  RefreshCw, ChevronDown, BarChart3,
+  RefreshCw, ChevronLeft, ChevronRight, BarChart3,
+  Filter, X, User,
 } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { SearchInput } from "@/components/ui/SearchInput";
-import { Pagination } from "@/components/ui/Pagination";
+import { DatePicker, ConfigProvider, theme as antdTheme } from "antd";
+import dayjs, { Dayjs } from "dayjs";
+import { useTheme } from "@/providers/ThemeProvider";
+import {
+  mockSchedules, MaintenanceSchedule, ScheduleStatus, MaintenanceType, Priority,
+} from "@/lib/mockSchedules";
 
-const PAGE_SIZE = 8;
+const { RangePicker } = DatePicker;
 
-type MaintStatus = "completed" | "upcoming" | "overdue" | "in-progress";
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-export interface MaintenanceRecord {
-  id: string;
-  equipment: string;
-  equipmentId: string;
-  department: string;
-  type: "Preventive" | "Corrective" | "Calibration" | "Inspection";
-  scheduledDate: string;
-  completedDate?: string;
-  status: MaintStatus;
-  technician: string;
-  notes?: string;
+const DAY_SHORT  = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const TIME_SLOTS: string[] = [];
+for (let h = 8; h <= 17; h++) {
+  TIME_SLOTS.push(`${String(h).padStart(2,"0")}:00`);
+  if (h < 17) TIME_SLOTS.push(`${String(h).padStart(2,"0")}:30`);
 }
 
-export const MOCK_RECORDS: MaintenanceRecord[] = [
-  { id: "PM-2024-001", equipment: "MRI Scanner — Siemens MAGNETOM",    equipmentId: "EQ-MRI-01", department: "Radiology",  type: "Preventive",  scheduledDate: "2024-06-15", status: "overdue",     technician: "D. Sharma", notes: "Annual coil inspection overdue" },
-  { id: "PM-2024-002", equipment: "CT Scanner — GE Revolution",          equipmentId: "EQ-CT-03",  department: "Radiology",  type: "Calibration", scheduledDate: "2024-06-20", status: "overdue",     technician: "A. Mehta" },
-  { id: "PM-2024-003", equipment: "Ventilator — Dräger Evita V800",      equipmentId: "EQ-VNT-07", department: "ICU",        type: "Preventive",  scheduledDate: "2024-06-28", status: "in-progress", technician: "R. Patel", notes: "Filter replacement in progress" },
-  { id: "PM-2024-004", equipment: "Infusion Pump — BD Alaris",           equipmentId: "EQ-INF-12", department: "Ward B",     type: "Inspection",  scheduledDate: "2024-07-02", status: "upcoming",    technician: "S. Kumar" },
-  { id: "PM-2024-005", equipment: "ECG Machine — Philips PageWriter",    equipmentId: "EQ-ECG-05", department: "Cardiology", type: "Calibration", scheduledDate: "2024-07-05", status: "upcoming",    technician: "D. Sharma" },
-  { id: "PM-2024-006", equipment: "X-Ray Unit — Siemens Ysio",           equipmentId: "EQ-XRY-02", department: "Radiology",  type: "Preventive",  scheduledDate: "2024-07-10", status: "upcoming",    technician: "A. Mehta" },
-  { id: "PM-2024-007", equipment: "Defibrillator — Zoll R Series",       equipmentId: "EQ-DEF-09", department: "Emergency",  type: "Inspection",  scheduledDate: "2024-07-12", status: "upcoming",    technician: "R. Patel" },
-  { id: "PM-2024-008", equipment: "Anesthesia Machine — GE Datex-Ohmeda",equipmentId: "EQ-ANS-04", department: "OR Suite",   type: "Preventive",  scheduledDate: "2024-05-30", completedDate: "2024-05-29", status: "completed", technician: "S. Kumar", notes: "Gas lines inspected, flow meters calibrated" },
-  { id: "PM-2024-009", equipment: "Patient Monitor — Mindray BeneVision", equipmentId: "EQ-MON-21", department: "ICU",       type: "Calibration", scheduledDate: "2024-05-28", completedDate: "2024-05-28", status: "completed", technician: "D. Sharma" },
-  { id: "PM-2024-010", equipment: "Ultrasound — Philips EPIQ Elite",      equipmentId: "EQ-USG-06", department: "OB-GYN",    type: "Preventive",  scheduledDate: "2024-06-01", completedDate: "2024-06-03", status: "completed", technician: "A. Mehta", notes: "Transducer cleaned and tested" },
-  { id: "PM-2024-011", equipment: "Blood Analyzer — Sysmex XN-3000",     equipmentId: "EQ-LAB-15", department: "Pathology",  type: "Calibration", scheduledDate: "2024-07-20", status: "upcoming",    technician: "R. Patel" },
-  { id: "PM-2024-012", equipment: "Surgical Robot — Intuitive da Vinci",  equipmentId: "EQ-ROB-01", department: "OR Suite",   type: "Preventive",  scheduledDate: "2024-07-25", status: "upcoming",    technician: "S. Kumar", notes: "Biannual full system check" },
-];
+const TECH_COLORS: Record<string, { bg: string; border: string; accent: string }> = {
+  "James Otieno":  { bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.3)", accent: "#a78bfa" },
+  "Priya Sharma":  { bg: "rgba(74,222,128,0.10)",  border: "rgba(74,222,128,0.3)",  accent: "#4ade80" },
+  "Carlos Mendes": { bg: "rgba(96,165,250,0.12)",  border: "rgba(96,165,250,0.3)",  accent: "#60a5fa" },
+  "Aisha Nkosi":   { bg: "rgba(251,146,60,0.12)",  border: "rgba(251,146,60,0.3)",  accent: "#fb923c" },
+};
+const DEFAULT_TECH = { bg: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.3)", accent: "#94a3b8" };
 
-export const STATUS_CONFIG: Record<MaintStatus, { label: string; bg: string; text: string; dot: string; icon: React.ReactNode }> = {
-  overdue:      { label: "Overdue",     bg: "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20",       text: "text-rose-600 dark:text-rose-400",    dot: "bg-rose-500",    icon: <AlertTriangle className="w-3 h-3" /> },
-  "in-progress":{ label: "In Progress", bg: "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20",   text: "text-amber-600 dark:text-amber-400",  dot: "bg-amber-500",   icon: <RefreshCw className="w-3 h-3" /> },
-  upcoming:     { label: "Upcoming",    bg: "bg-blue-50 dark:bg-sky-500/10 border border-blue-200 dark:border-sky-500/20",         text: "text-blue-600 dark:text-sky-400",     dot: "bg-blue-500 dark:bg-sky-400",    icon: <Clock className="w-3 h-3" /> },
-  completed:    { label: "Completed",   bg: "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", icon: <CheckCircle2 className="w-3 h-3" /> },
+const STATUS_STYLE: Record<ScheduleStatus, { bg: string; border: string; text: string; dot: string }> = {
+  Scheduled:     { bg: "rgba(96,165,250,0.10)",  border: "rgba(96,165,250,0.3)",  text: "#60a5fa", dot: "#60a5fa" },
+  "In Progress": { bg: "rgba(250,204,21,0.10)",  border: "rgba(250,204,21,0.35)", text: "#facc15", dot: "#facc15" },
+  Overdue:       { bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)",text: "#f87171", dot: "#f87171" },
+  Completed:     { bg: "rgba(74,222,128,0.08)",  border: "rgba(74,222,128,0.25)", text: "#4ade80", dot: "#4ade80" },
 };
 
-export const TYPE_STYLE: Record<string, string> = {
-  Preventive:  "bg-blue-50 dark:bg-sky-500/8 text-blue-700 dark:text-sky-300 border border-blue-200 dark:border-sky-500/20",
-  Corrective:  "bg-amber-50 dark:bg-amber-500/8 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/20",
-  Calibration: "bg-teal-50 dark:bg-teal-500/8 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-500/20",
-  Inspection:  "bg-violet-50 dark:bg-violet-500/8 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/20",
+const PRIORITY_STYLE: Record<Priority, { color: string; bg: string }> = {
+  High:   { color: "#f87171", bg: "rgba(239,68,68,0.10)"   },
+  Medium: { color: "#facc15", bg: "rgba(234,179,8,0.10)"   },
+  Low:    { color: "#4ade80", bg: "rgba(74,222,128,0.08)"  },
 };
+
+const TYPE_STYLE: Record<MaintenanceType, { color: string; bg: string }> = {
+  Preventive: { color: "#60a5fa", bg: "rgba(96,165,250,0.10)"  },
+  Corrective: { color: "#c084fc", bg: "rgba(192,132,252,0.10)" },
+  Predictive: { color: "#2dd4bf", bg: "rgba(45,212,191,0.10)"  },
+};
+
+type ViewMode = "week" | "month";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function getMondayOf(d: Date): Date {
+  const r = new Date(d);
+  const day = r.getDay();
+  r.setDate(r.getDate() + (day === 0 ? -6 : 1 - day));
+  r.setHours(0,0,0,0);
+  return r;
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+// ── AppointmentCard ───────────────────────────────────────────────────────────
+
+function AppointmentCard({
+  schedule, selected, onClick,
+}: { schedule: MaintenanceSchedule; selected: boolean; onClick: () => void }) {
+  const c = TECH_COLORS[schedule.assignedTo] ?? DEFAULT_TECH;
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left px-2 py-1.5 rounded-lg transition-all cursor-pointer mb-1 last:mb-0"
+      style={{
+        background: c.bg,
+        border: `1px solid ${selected ? c.accent : c.border}`,
+        boxShadow: selected ? `0 0 0 2px ${c.accent}33` : "none",
+      }}
+    >
+      <p className="text-[11px] font-semibold leading-tight truncate text-slate-800 dark:text-white/85">
+        {schedule.equipment}
+      </p>
+      <p className="text-[10px] font-medium mt-0.5 truncate" style={{ color: c.accent }}>
+        {schedule.assignedTo}
+      </p>
+    </button>
+  );
+}
+
+// ── ScheduleDetail ────────────────────────────────────────────────────────────
+
+function ScheduleDetail({ schedule, onClose }: { schedule: MaintenanceSchedule; onClose: () => void }) {
+  const s = STATUS_STYLE[schedule.status];
+  const p = PRIORITY_STYLE[schedule.priority];
+  const t = TYPE_STYLE[schedule.type];
+
+  return (
+    <div className="w-80 shrink-0 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/8 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 flex items-start justify-between gap-2 border-b border-slate-100 dark:border-white/6">
+        <div className="min-w-0">
+          <p className="text-[10px] font-mono text-slate-400 dark:text-white/30">{schedule.id}</p>
+          <h3 className="text-[13px] font-semibold mt-0.5 leading-snug text-slate-800 dark:text-white">
+            {schedule.equipment}
+          </h3>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 p-1 rounded-md hover:bg-slate-100 dark:hover:bg-white/6 transition-colors mt-0.5 cursor-pointer"
+        >
+          <X className="w-3.5 h-3.5 text-slate-400 dark:text-white/30" />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-3">
+        <Row label="Status">
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ color: s.text, background: s.bg, border: `1px solid ${s.border}` }}>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.dot }} />
+            {schedule.status}
+          </span>
+        </Row>
+        <Row label="Type">
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded"
+            style={{ color: t.color, background: t.bg }}>{schedule.type}</span>
+        </Row>
+        <Row label="Priority">
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded"
+            style={{ color: p.color, background: p.bg }}>{schedule.priority}</span>
+        </Row>
+        <div className="h-px bg-slate-100 dark:bg-white/6" />
+        <DetailRow icon={<Calendar className="w-3.5 h-3.5" />} label="Scheduled">
+          {schedule.scheduledDate} · {schedule.scheduledTime}
+        </DetailRow>
+        <DetailRow icon={<Clock className="w-3.5 h-3.5" />} label="Duration">
+          {schedule.estimatedDuration}
+        </DetailRow>
+        <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Assigned To">
+          {schedule.assignedTo}
+        </DetailRow>
+        <DetailRow icon={<Wrench className="w-3.5 h-3.5" />} label="Last Performed">
+          {schedule.lastPerformed}
+        </DetailRow>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[10px] uppercase tracking-widest font-mono text-slate-400 dark:text-white/30 shrink-0">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-slate-300 dark:text-white/20 mt-0.5 shrink-0">{icon}</span>
+      <div>
+        <p className="text-[9px] uppercase tracking-widest font-mono text-slate-400 dark:text-white/25">{label}</p>
+        <p className="text-[12px] font-medium text-slate-600 dark:text-white/60 mt-0.5">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── WeekCalendar ──────────────────────────────────────────────────────────────
+
+function WeekCalendar({ weekStart, schedules, selected, onSelect }: {
+  weekStart: Date;
+  schedules: MaintenanceSchedule[];
+  selected: MaintenanceSchedule | null;
+  onSelect: (s: MaintenanceSchedule | null) => void;
+}) {
+  const todayKey = toDateKey(new Date());
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(weekStart, i);
+    return { d, key: toDateKey(d), label: DAY_SHORT[i], num: d.getDate(), month: MONTH_SHORT[d.getMonth()] };
+  });
+
+  const indexed = useMemo(() => {
+    const map: Record<string, Record<string, MaintenanceSchedule[]>> = {};
+    for (const s of schedules) {
+      (map[s.scheduledDate] ??= {})[s.scheduledTime] ??= [];
+      map[s.scheduledDate][s.scheduledTime].push(s);
+    }
+    return map;
+  }, [schedules]);
+
+  const TIME_COL_W = 52;
+  const ROW_H = 76;
+
+  return (
+    <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 340px)" }}>
+      {/* Header */}
+      <div className="sticky top-0 z-10 flex bg-white dark:bg-[#0c0e16] border-b border-slate-100 dark:border-white/5">
+        <div style={{ width: TIME_COL_W, minWidth: TIME_COL_W }} className="border-r border-slate-100 dark:border-white/5" />
+        {days.map((d, i) => {
+          const isToday = d.key === todayKey;
+          return (
+            <div key={d.key} className={`flex-1 py-2.5 text-center ${i < 6 ? "border-r border-slate-100 dark:border-white/5" : ""}`}>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">{d.label}</p>
+              <div className="flex items-center justify-center mt-0.5 gap-1">
+                <span className="text-[13px] font-semibold w-7 h-7 flex items-center justify-center rounded-full"
+                  style={isToday ? { background: "#2D6CFA", color: "#fff" } : { color: "inherit" }}
+                >
+                  {d.num}
+                </span>
+                {d.d.getDate() === 1 && (
+                  <span className="text-[9px] text-slate-400 dark:text-white/25">{d.month}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Rows */}
+      {TIME_SLOTS.map((slot, si) => (
+        <div key={slot} className={`flex ${si < TIME_SLOTS.length - 1 ? "border-b border-slate-100 dark:border-white/5" : ""}`} style={{ minHeight: ROW_H }}>
+          <div className="flex items-start justify-end pr-2 pt-1.5 shrink-0 border-r border-slate-100 dark:border-white/5"
+            style={{ width: TIME_COL_W, minWidth: TIME_COL_W }}>
+            <span className="text-[10px] font-mono text-slate-400 dark:text-white/25">{slot}</span>
+          </div>
+          {days.map((d, di) => {
+            const items = indexed[d.key]?.[slot] ?? [];
+            return (
+              <div key={d.key}
+                className={`flex-1 p-1.5 ${di < 6 ? "border-r border-slate-100 dark:border-white/5" : ""}`}
+                style={{ background: d.key === todayKey ? "rgba(45,108,250,0.04)" : "transparent" }}
+              >
+                {items.map(s => (
+                  <AppointmentCard
+                    key={s.id}
+                    schedule={s}
+                    selected={selected?.id === s.id}
+                    onClick={() => onSelect(selected?.id === s.id ? null : s)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── MonthCalendar ─────────────────────────────────────────────────────────────
+
+function MonthCalendar({ year, month, schedules, selected, onSelect }: {
+  year: number; month: number;
+  schedules: MaintenanceSchedule[];
+  selected: MaintenanceSchedule | null;
+  onSelect: (s: MaintenanceSchedule | null) => void;
+}) {
+  const today = new Date();
+  const byDate = useMemo(() => {
+    const map: Record<string, MaintenanceSchedule[]> = {};
+    schedules.forEach(s => { (map[s.scheduledDate] ??= []).push(s); });
+    return map;
+  }, [schedules]);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const rawFirst = new Date(year, month, 1).getDay();
+  const offset = rawFirst === 0 ? 6 : rawFirst - 1;
+  const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+
+  const cells = Array.from({ length: totalCells }, (_, i) => {
+    const dayNum = i - offset + 1;
+    if (dayNum < 1 || dayNum > daysInMonth) return null;
+    const key = `${year}-${String(month+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`;
+    const isToday = dayNum === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    return { dayNum, key, items: byDate[key] ?? [], isToday };
+  });
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 bg-slate-50 dark:bg-white/2 border-b border-slate-100 dark:border-white/5">
+        {DAY_SHORT.map(d => (
+          <div key={d} className="py-2.5 text-center text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((cell, i) => {
+          const isLast = i >= cells.length - 7;
+          const isLastCol = (i + 1) % 7 === 0;
+          return (
+            <div key={i}
+              className={`min-h-28 p-2 relative
+                ${!isLast    ? "border-b border-slate-100 dark:border-white/5" : ""}
+                ${!isLastCol ? "border-r border-slate-100 dark:border-white/5" : ""}
+                ${!cell      ? "bg-slate-50 dark:bg-white/2" : ""}
+              `}
+            >
+              {cell && (
+                <>
+                  <div className="flex justify-end mb-1">
+                    <span className="w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-semibold"
+                      style={cell.isToday ? { background: "#2D6CFA", color: "#fff" } : { color: "rgb(148 163 184)" }}>
+                      {cell.dayNum}
+                    </span>
+                  </div>
+                  {cell.items.slice(0, 2).map(s => (
+                    <AppointmentCard key={s.id} schedule={s}
+                      selected={selected?.id === s.id}
+                      onClick={() => onSelect(selected?.id === s.id ? null : s)}
+                    />
+                  ))}
+                  {cell.items.length > 2 && (
+                    <button onClick={() => onSelect(cell.items[2])}
+                      className="text-[10px] font-mono text-slate-400 dark:text-white/25 px-1.5 cursor-pointer hover:text-slate-600 dark:hover:text-white/50 transition-colors">
+                      +{cell.items.length - 2} more
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── FilterPopover ─────────────────────────────────────────────────────────────
+
+function FilterPopover({ defaultFrom, defaultTo, onApply, onClear, onClose }: {
+  defaultFrom?: string;
+  defaultTo?: string;
+  onApply: (from: string, to: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
+
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null]>([
+    defaultFrom ? dayjs(defaultFrom) : null,
+    defaultTo   ? dayjs(defaultTo)   : null,
+  ]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const popup = document.querySelector(".ant-picker-dropdown");
+      if (popup?.contains(e.target as Node)) return;
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div ref={ref}
+      className="absolute right-0 top-full mt-1.5 z-50 p-4 rounded-xl space-y-3 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/8 shadow-xl"
+      style={{ minWidth: 320 }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Date Range</p>
+      <ConfigProvider theme={{ algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm }}>
+        <RangePicker
+          value={range}
+          onChange={dates => setRange(dates ? [dates[0] ?? null, dates[1] ?? null] : [null, null])}
+          format="DD MMM YYYY"
+          style={{ width: "100%" }}
+          allowClear
+        />
+      </ConfigProvider>
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => { setRange([null, null]); onClear(); }}
+          className="flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer border border-slate-200 dark:border-white/8 text-slate-500 dark:text-white/40 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+        >
+          Clear
+        </button>
+        <button
+          onClick={() => onApply(range[0]?.format("YYYY-MM-DD") ?? "", range[1]?.format("YYYY-MM-DD") ?? "")}
+          className="flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer bg-[#2D6CFA] hover:bg-[#255DE6] text-white transition-colors"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── UpcomingSidebar ───────────────────────────────────────────────────────────
+
+function UpcomingSidebar({ onSelect }: { onSelect: (s: MaintenanceSchedule) => void }) {
+  const todayKey = toDateKey(new Date());
+
+  const upcoming = useMemo(() =>
+    mockSchedules
+      .filter(s => s.status === "Scheduled" && s.scheduledDate >= todayKey)
+      .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)),
+  [todayKey]);
+
+  return (
+    <div className="w-80 shrink-0 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden flex flex-col" style={{ maxHeight: "calc(100vh - 260px)" }}>
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-500" />
+          <span className="text-xs font-semibold text-slate-700 dark:text-white/70">Upcoming Maintenance</span>
+        </div>
+        <span className="text-[10px] font-mono text-slate-400 dark:text-white/25">{upcoming.length}</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+        {upcoming.length === 0 ? (
+          <p className="px-4 py-6 text-[11px] text-center text-slate-400 dark:text-white/25">No upcoming tasks</p>
+        ) : upcoming.map(s => {
+          const c = TECH_COLORS[s.assignedTo] ?? DEFAULT_TECH;
+          const p = PRIORITY_STYLE[s.priority];
+          return (
+            <button
+              key={s.id}
+              onClick={() => onSelect(s)}
+              className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/3 transition-colors cursor-pointer"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-[11px] font-semibold text-slate-800 dark:text-white/85 leading-tight truncate">
+                  {s.equipment}
+                </p>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                  style={{ color: p.color, background: p.bg }}>
+                  {s.priority}
+                </span>
+              </div>
+              <p className="text-[10px] truncate" style={{ color: c.accent }}>{s.assignedTo}</p>
+              <p className="text-[10px] text-slate-400 dark:text-white/25 mt-0.5 font-mono">
+                {s.scheduledDate} · {s.scheduledTime}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MaintenancePage() {
   const router = useRouter();
-  const [search, setSearch]             = useState("");
-  const [statusFilter, setStatusFilter] = useState<MaintStatus | "all">("all");
-  const [typeFilter, setTypeFilter]     = useState<string>("all");
-  const [page, setPage]                 = useState(1);
+  const today = new Date();
 
-  const counts = useMemo(() => ({
-    overdue:    MOCK_RECORDS.filter(r => r.status === "overdue").length,
-    inProgress: MOCK_RECORDS.filter(r => r.status === "in-progress").length,
-    upcoming:   MOCK_RECORDS.filter(r => r.status === "upcoming").length,
-    completed:  MOCK_RECORDS.filter(r => r.status === "completed").length,
-  }), []);
+  const [view, setView]             = useState<ViewMode>("week");
+  const [weekStart, setWeekStart]   = useState<Date>(() => getMondayOf(today));
+  const [calYear, setCalYear]       = useState(today.getFullYear());
+  const [calMonth, setCalMonth]     = useState(today.getMonth());
+  const [selected, setSelected]     = useState<MaintenanceSchedule | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [activeFrom, setActiveFrom] = useState("");
+  const [activeTo, setActiveTo]     = useState("");
+
+  const isFiltered = !!(activeFrom || activeTo);
 
   const filtered = useMemo(() => {
-    setPage(1);
-    return MOCK_RECORDS.filter(r => {
-      const matchSearch =
-        !search.trim() ||
-        r.equipment.toLowerCase().includes(search.toLowerCase()) ||
-        r.department.toLowerCase().includes(search.toLowerCase()) ||
-        r.technician.toLowerCase().includes(search.toLowerCase()) ||
-        r.equipmentId.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === "all" || r.status === statusFilter;
-      const matchType   = typeFilter === "all" || r.type === typeFilter;
-      return matchSearch && matchStatus && matchType;
+    if (!activeFrom && !activeTo) return mockSchedules;
+    return mockSchedules.filter(s => {
+      if (activeFrom && s.scheduledDate < activeFrom) return false;
+      if (activeTo   && s.scheduledDate > activeTo)   return false;
+      return true;
     });
-  }, [search, statusFilter, typeFilter]);
+  }, [activeFrom, activeTo]);
 
-  const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+  const counts = useMemo(() => ({
+    overdue:    mockSchedules.filter(s => s.status === "Overdue").length,
+    inProgress: mockSchedules.filter(s => s.status === "In Progress").length,
+    upcoming:   mockSchedules.filter(s => s.status === "Scheduled").length,
+    completed:  mockSchedules.filter(s => s.status === "Completed").length,
+  }), []);
+
+  const prevPeriod = () => {
+    if (view === "week") setWeekStart(d => addDays(d, -7));
+    else if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+    else setCalMonth(m => m - 1);
+  };
+  const nextPeriod = () => {
+    if (view === "week") setWeekStart(d => addDays(d, 7));
+    else if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+    else setCalMonth(m => m + 1);
+  };
+  const goToday = () => {
+    setWeekStart(getMondayOf(today));
+    setCalYear(today.getFullYear());
+    setCalMonth(today.getMonth());
+  };
+
+  const weekEnd   = addDays(weekStart, 6);
+  const weekLabel = weekStart.getMonth() === weekEnd.getMonth()
+    ? `${MONTH_SHORT[weekStart.getMonth()]} ${weekStart.getDate()} – ${weekEnd.getDate()}, ${weekStart.getFullYear()}`
+    : `${MONTH_SHORT[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTH_SHORT[weekEnd.getMonth()]} ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#07090e]">
@@ -104,13 +524,13 @@ export default function MaintenancePage() {
             <div>
               <h1 className="text-base font-bold text-slate-900 dark:text-white">Maintenance Management</h1>
               <p className="text-xs text-slate-500 dark:text-white/40 mt-0.5">
-                Preventive &amp; corrective maintenance for medical equipment
+                Preventive &amp; corrective maintenance for industrial equipment
               </p>
             </div>
           </div>
           <button
             onClick={() => router.push("/maintenance/schedule")}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition shadow-[0_0_16px_rgba(37,99,235,0.2)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-xs font-semibold rounded-lg transition shadow-[0_0_16px_rgba(45,108,250,0.2)]"
           >
             <Calendar className="w-3.5 h-3.5" />
             Schedule Maintenance
@@ -123,55 +543,17 @@ export default function MaintenancePage() {
         {/* ── KPI Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            {
-              label: "Overdue",
-              value: counts.overdue,
-              sub: "Requires immediate action",
-              icon: <AlertTriangle className="w-4 h-4 text-rose-500" />,
-              iconBg: "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20",
-              value_color: "text-rose-600 dark:text-rose-400",
-              bar: "bg-rose-500",
-              pct: Math.round((counts.overdue / MOCK_RECORDS.length) * 100),
-            },
-            {
-              label: "In Progress",
-              value: counts.inProgress,
-              sub: "Currently being serviced",
-              icon: <RefreshCw className="w-4 h-4 text-amber-500" />,
-              iconBg: "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20",
-              value_color: "text-amber-600 dark:text-amber-400",
-              bar: "bg-amber-500",
-              pct: Math.round((counts.inProgress / MOCK_RECORDS.length) * 100),
-            },
-            {
-              label: "Upcoming ",
-              value: counts.upcoming,
-              sub: "Scheduled in next 30 days",
-              icon: <Clock className="w-4 h-4 text-blue-500" />,
-              iconBg: "bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20",
-              value_color: "text-blue-600 dark:text-blue-400",
-              bar: "bg-blue-500",
-              pct: Math.round((counts.upcoming / MOCK_RECORDS.length) * 100),
-            },
-            {
-              label: "Completed",
-              value: counts.completed,
-              sub: "Completed on schedule",
-              icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
-              iconBg: "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20",
-              value_color: "text-emerald-700 dark:text-emerald-400",
-              bar: "bg-emerald-500",
-              pct: Math.round((counts.completed / MOCK_RECORDS.length) * 100),
-            },
+            { label: "Overdue",     value: counts.overdue,    sub: "Requires immediate action",  icon: <AlertTriangle className="w-4 h-4 text-rose-500" />,   iconBg: "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20",       valueColor: "text-rose-600 dark:text-rose-400",    bar: "bg-rose-500",    pct: Math.round((counts.overdue    / mockSchedules.length) * 100) },
+            { label: "In Progress", value: counts.inProgress, sub: "Currently being serviced",   icon: <RefreshCw className="w-4 h-4 text-amber-500" />,      iconBg: "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20",   valueColor: "text-amber-600 dark:text-amber-400",  bar: "bg-amber-500",   pct: Math.round((counts.inProgress / mockSchedules.length) * 100) },
+            { label: "Upcoming",    value: counts.upcoming,   sub: "Scheduled & ready",          icon: <Clock className="w-4 h-4 text-blue-500" />,           iconBg: "bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20",       valueColor: "text-blue-600 dark:text-blue-400",    bar: "bg-blue-500",    pct: Math.round((counts.upcoming   / mockSchedules.length) * 100) },
+            { label: "Completed",   value: counts.completed,  sub: "Completed on schedule",      icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, iconBg: "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20", valueColor: "text-emerald-700 dark:text-emerald-400", bar: "bg-emerald-500", pct: Math.round((counts.completed  / mockSchedules.length) * 100) },
           ].map(card => (
             <div key={card.label} className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>
-                  {card.icon}
-                </div>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>{card.icon}</div>
                 <BarChart3 className="w-4 h-4 text-slate-200 dark:text-white/10" />
               </div>
-              <p className={`text-3xl font-bold tabular-nums ${card.value_color}`}>{card.value}</p>
+              <p className={`text-3xl font-bold tabular-nums ${card.valueColor}`}>{card.value}</p>
               <p className="text-xs font-semibold text-slate-600 dark:text-white/60 mt-1">{card.label}</p>
               <p className="text-[10px] text-slate-400 dark:text-white/25 mt-0.5">{card.sub}</p>
               <div className="mt-4 h-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
@@ -181,149 +563,100 @@ export default function MaintenancePage() {
           ))}
         </div>
 
-        {/* ── Filter Bar ── */}
-        <div className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3.5 flex items-center gap-3 flex-wrap">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search equipment, department, technician…"
-            className="flex-1 min-w-[200px]"
-          />
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value as MaintStatus | "all")}
-                className="appearance-none bg-slate-50 dark:bg-white/3 border border-slate-200 dark:border-white/8 rounded-lg pl-3 pr-7 py-2 text-xs text-slate-700 dark:text-white/70 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500/40 cursor-pointer transition"
-              >
-                <option value="all">All Statuses</option>
-                <option value="overdue">Overdue</option>
-                <option value="in-progress">In Progress</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="completed">Completed</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 dark:text-white/30 pointer-events-none" />
-            </div>
-            <div className="relative">
-              <select
-                value={typeFilter}
-                onChange={e => setTypeFilter(e.target.value)}
-                className="appearance-none bg-slate-50 dark:bg-white/3 border border-slate-200 dark:border-white/8 rounded-lg pl-3 pr-7 py-2 text-xs text-slate-700 dark:text-white/70 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500/40 cursor-pointer transition"
-              >
-                <option value="all">All Types</option>
-                <option value="Preventive">Preventive</option>
-                <option value="Corrective">Corrective</option>
-                <option value="Calibration">Calibration</option>
-                <option value="Inspection">Inspection</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 dark:text-white/30 pointer-events-none" />
-            </div>
-          </div>
-          <span className="text-[10px] font-mono text-slate-400 dark:text-white/25 ml-auto shrink-0">
-            {filtered.length} of {MOCK_RECORDS.length} records
-          </span>
-        </div>
+        {/* ── Calendar Panel ── */}
+        <div className="flex gap-4 items-start pb-2">
+          <div className="flex-1 min-w-0 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
 
-        {/* ── Maintenance Table ── */}
-        <div className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
+            {/* Toolbar */}
+            <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-white/5 flex-wrap">
 
-          {/* Table Header */}
-          <div className="grid grid-cols-[180px_1fr_130px_110px_130px_140px_160px] px-4 py-3 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
-            {["Work Order", "Equipment", "Department", "Type", "Scheduled", "Technician", "Status"].map(h => (
-              <span key={h} className="text-[10px] font-bold font-mono uppercase tracking-widest text-slate-400 dark:text-white/25">
-                {h}
-              </span>
-            ))}
-          </div>
-
-          {/* Table Body */}
-          {paginated.length === 0 && filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 flex items-center justify-center">
-                <Wrench className="w-5 h-5 text-slate-300 dark:text-white/15" />
-              </div>
-              <p className="text-sm font-medium text-slate-400 dark:text-white/30">No records match your filters</p>
-              <p className="text-xs text-slate-300 dark:text-white/20">Try adjusting the search or filter criteria</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-white/4">
-              {paginated.map(r => {
-                const s = STATUS_CONFIG[r.status];
-                return (
-                  <div
-                    key={r.id}
-                    onClick={() => router.push(`/maintenance/${r.id}`)}
-                    className="grid grid-cols-[180px_1fr_130px_110px_130px_140px_160px] px-4 py-3.5 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] cursor-pointer transition-colors group"
+              {/* View tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8">
+                {(["week","month"] as ViewMode[]).map(v => (
+                  <button key={v} onClick={() => setView(v)}
+                    className="px-3 py-1 rounded-md text-[12px] font-medium transition-all cursor-pointer capitalize"
+                    style={{
+                      background: view === v ? "#fff" : "transparent",
+                      color: view === v ? "#0f172a" : "rgb(148 163 184)",
+                      border: view === v ? "1px solid rgb(226 232 240)" : "1px solid transparent",
+                      boxShadow: view === v ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    }}
                   >
-                    {/* Work Order */}
-                    <div className="flex flex-col justify-center min-w-0">
-                      <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-sky-400 truncate">{r.id}</span>
-                      <span className="text-[10px] font-mono text-slate-400 dark:text-white/25 mt-0.5">{r.equipmentId}</span>
-                    </div>
+                    {v}
+                  </button>
+                ))}
+              </div>
 
-                    {/* Equipment */}
-                    <div className="flex flex-col justify-center min-w-0 pr-4">
-                      <span className="text-xs font-semibold text-slate-800 dark:text-white/80 truncate">{r.equipment}</span>
-                      {r.notes && (
-                        <span className="text-[10px] text-slate-400 dark:text-white/35 truncate mt-0.5">{r.notes}</span>
-                      )}
-                    </div>
+              {/* Navigation */}
+              <div className="flex items-center gap-2">
+                <button onClick={prevPeriod}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-white/8 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer text-slate-500 dark:text-white/40">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={goToday}
+                  className="px-3 py-1 rounded-lg text-[12px] font-medium border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 hover:bg-slate-100 dark:hover:bg-white/6 text-slate-600 dark:text-white/50 transition-colors cursor-pointer">
+                  Today
+                </button>
+                <button onClick={nextPeriod}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-white/8 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer text-slate-500 dark:text-white/40">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <span className="text-[13px] font-semibold text-slate-700 dark:text-white/70 ml-1 whitespace-nowrap">
+                  {view === "week" ? weekLabel : `${MONTH_NAMES[calMonth]} ${calYear}`}
+                </span>
+              </div>
 
-                    {/* Department */}
-                    <div className="flex items-center min-w-0">
-                      <span className="text-xs text-slate-500 dark:text-white/50 truncate">{r.department}</span>
-                    </div>
-
-                    {/* Type */}
-                    <div className="flex items-center">
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${TYPE_STYLE[r.type]}`}>
-                        {r.type}
-                      </span>
-                    </div>
-
-                    {/* Scheduled Date */}
-                    <div className="flex flex-col justify-center">
-                      <span className="text-[11px] font-mono text-slate-700 dark:text-white/60">
-                        {new Date(r.scheduledDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                      </span>
-                      {r.completedDate && (
-                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400/70 mt-0.5">
-                          Done {new Date(r.completedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Technician */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center shrink-0">
-                        <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">
-                          {r.technician.split(" ").map(n => n[0]).join("")}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-600 dark:text-white/50 truncate">{r.technician}</span>
-                    </div>
-
-                    {/* Status */}
-                    <div className="flex items-center">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>
-                        {s.icon}
-                        {s.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Filter */}
+              <div className="relative">
+                <button onClick={() => setFilterOpen(o => !o)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                  style={{
+                    border: `1px solid ${isFiltered ? "#2D6CFA" : "rgb(226 232 240)"}`,
+                    color: isFiltered ? "#2D6CFA" : "rgb(148 163 184)",
+                    background: isFiltered ? "rgba(45,108,250,0.08)" : "transparent",
+                  }}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                </button>
+                {filterOpen && (
+                  <FilterPopover
+                    defaultFrom={activeFrom}
+                    defaultTo={activeTo}
+                    onApply={(from, to) => { setActiveFrom(from); setActiveTo(to); setFilterOpen(false); }}
+                    onClear={() => { setActiveFrom(""); setActiveTo(""); setFilterOpen(false); }}
+                    onClose={() => setFilterOpen(false)}
+                  />
+                )}
+              </div>
             </div>
-          )}
-          {filtered.length > 0 && (
-            <Pagination
-              currentPage={page}
-              totalItems={filtered.length}
-              itemsPerPage={PAGE_SIZE}
-              onPageChange={setPage}
-            />
+
+            {/* Calendar body */}
+            {view === "week" ? (
+              <WeekCalendar
+                weekStart={weekStart}
+                schedules={filtered}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ) : (
+              <MonthCalendar
+                year={calYear}
+                month={calMonth}
+                schedules={filtered}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            )}
+          </div>
+
+          {/* Right panel — detail when selected, upcoming list otherwise */}
+          {selected ? (
+            <ScheduleDetail schedule={selected} onClose={() => setSelected(null)} />
+          ) : (
+            <UpcomingSidebar onSelect={setSelected} />
           )}
         </div>
+
       </div>
     </div>
   );
