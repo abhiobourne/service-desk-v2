@@ -1177,7 +1177,7 @@ export default function TicketDetailPage() {
       {/* ── Attachment preview modal ── */}
       {previewUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.75)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
         >
