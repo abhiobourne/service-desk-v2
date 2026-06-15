@@ -34,13 +34,6 @@ export function TopNavbar() {
 
       {/* Right: search + actions + profile */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/")}
-          className="px-3.5 py-1.5 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-[11px] font-mono tracking-wider font-bold rounded flex items-center gap-1.5 shadow-[0_0_12px_#2d6cfa44] transition uppercase"
-        >
-          <PlusCircle className="h-3.5 w-3.5 text-white" />
-          <span className="text-white">Connect Machine</span>
-        </button>
 
         {/* Bell */}
         <div ref={notifRef} className="relative">
@@ -58,21 +51,21 @@ export function TopNavbar() {
           </button>
 
           {notifOpen && (
-            <div className="absolute top-10 right-0 w-80 bg-[#0c0e16] border border-white/10 rounded-xl shadow-2xl z-[9999] overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-white/50 uppercase tracking-widest">Notifications</span>
+            <div className="absolute top-10 right-0 w-80 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-[9999] overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-white/50 uppercase tracking-widest">Notifications</span>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-[9px] font-mono text-cyan-400/70 hover:text-cyan-400 transition"
+                    className="text-[9px] font-mono text-cyan-600 dark:text-cyan-400/70 hover:text-cyan-700 dark:hover:text-cyan-400 transition"
                   >
                     Mark all read
                   </button>
                 )}
               </div>
-              <div className="divide-y divide-white/5 max-h-80 overflow-y-auto">
+              <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-[10px] font-mono text-white/20">
+                  <div className="px-4 py-8 text-center text-[10px] font-mono text-slate-400 dark:text-white/30">
                     No notifications
                   </div>
                 ) : (
@@ -86,16 +79,16 @@ export function TopNavbar() {
                           router.push(`/tickets/${n.ticketId}`);
                         }
                       }}
-                      className={`px-4 py-3 hover:bg-white/3 transition cursor-pointer ${!n.isRead ? "bg-white/[0.02]" : ""}`}
+                      className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition cursor-pointer ${!n.isRead ? "bg-violet-50/60 dark:bg-white/[0.02]" : ""}`}
                     >
                       <div className="flex items-start gap-2.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${!n.isRead ? "bg-violet-400" : "bg-white/15"}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${!n.isRead ? "bg-violet-500" : "bg-slate-300 dark:bg-white/15"}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] font-mono font-semibold leading-snug ${!n.isRead ? "text-violet-300" : "text-white/40"}`}>
+                          <p className={`text-[11px] font-mono font-semibold leading-snug ${!n.isRead ? "text-violet-700 dark:text-violet-300" : "text-slate-600 dark:text-white/40"}`}>
                             {n.title}
                           </p>
-                          <p className="text-[10px] font-mono text-white/40 mt-0.5 leading-snug truncate">{n.message}</p>
-                          <p className="text-[9px] font-mono text-white/20 mt-1">
+                          <p className="text-[10px] font-mono text-slate-500 dark:text-white/40 mt-0.5 leading-snug truncate">{n.message}</p>
+                          <p className="text-[9px] font-mono text-slate-400 dark:text-white/20 mt-1">
                             {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             {" · "}
                             {new Date(n.createdAt).toLocaleDateString("en-GB")}
@@ -130,44 +123,43 @@ export function TopNavbar() {
             </button>
 
             {profileOpen && (
-              <div className="absolute top-10 right-0 w-52 bg-[#0c0e16] border border-white/10 rounded-xl shadow-2xl z-[9999] overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/5">
-                  <p className="text-xs font-mono font-semibold text-white truncate">{user.firstName} {user.lastName}</p>
-                  <p className="text-[9px] font-mono text-white/35 truncate mt-0.5">{(user as any).email ?? ""}</p>
+              <div className="absolute top-10 right-0 w-56 bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-[9999] overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-white/5">
+                  <p className="text-xs font-mono font-semibold text-slate-900 dark:text-white truncate">{user.firstName} {user.lastName}</p>
+                  <p className="text-[9px] font-mono text-slate-400 dark:text-white/35 truncate mt-0.5">{(user as any).email ?? ""}</p>
                 </div>
-                {/* Profile */}
+
                 <button
                   onClick={() => { setProfileOpen(false); router.push("/profile"); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-white/60 hover:bg-white/5 transition"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition"
                 >
                   <User className="h-3.5 w-3.5" />
                   Profile
                 </button>
 
-                <div className="border-t border-white/5" />
+                <div className="border-t border-slate-100 dark:border-white/5" />
 
-                {/* Theme toggle */}
+                {/* Theme toggle — active (blue/right) when dark mode is ON */}
                 <button
                   onClick={toggleTheme}
-                  className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 text-xs font-mono text-white/60 hover:bg-white/5 transition"
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-mono text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition"
                 >
                   <div className="flex items-center gap-2.5">
                     {theme === "dark"
-                      ? <Sun className="h-3.5 w-3.5 text-amber-400" />
-                      : <Moon className="h-3.5 w-3.5 text-slate-500" />}
-                    <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                      ? <Moon className="h-3.5 w-3.5 text-blue-500" />
+                      : <Sun className="h-3.5 w-3.5 text-amber-500" />}
+                    <span>{theme === "dark" ? "Dark Mode" : "Light Mode"}</span>
                   </div>
-                  {/* Pill toggle */}
-                  <div className={`relative w-8 h-4 shrink-0 rounded-full transition-colors ${theme === "light" ? "bg-blue-500" : "bg-white/15"}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${theme === "light" ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                  <div className={`relative w-9 h-5 shrink-0 rounded-full transition-colors duration-200 ${theme === "dark" ? "bg-blue-500" : "bg-slate-200"}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${theme === "dark" ? "translate-x-4" : "translate-x-0"}`} />
                   </div>
                 </button>
 
-                <div className="border-t border-white/5" />
+                <div className="border-t border-slate-100 dark:border-white/5" />
 
                 <button
                   onClick={async () => { setProfileOpen(false); await logout(); router.push("/login"); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-red-400 hover:bg-red-500/10 transition"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-mono text-rose-500 dark:text-red-400 hover:bg-rose-50 dark:hover:bg-red-500/10 transition"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Sign Out

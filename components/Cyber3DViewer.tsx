@@ -62,8 +62,7 @@ export interface DynamicHotspot {
  * Dynamically streams actual ViewRay portal GLB drawings into Three.js.
  */
 function PortalGltfModel({ mode, activeGlbUrl, dynamicHotspots = [] }: { mode: string, activeGlbUrl?: string | null, dynamicHotspots?: DynamicHotspot[] }) {
-  const isBrowser = typeof window !== "undefined";
-  const baseUrl = isBrowser ? `http://${window.location.hostname}:7000/api/v1/files` : "http://127.0.0.1:7000/api/v1/files";
+  const baseUrl = `${process.env.NEXT_PUBLIC_API_SERVER || "http://127.0.0.1:7000"}/api/v1/files`;
 
   const modelUrlMap: Record<string, string> = {
     turbine: `${baseUrl}/1778652509459-981429694-engine_four_cylinder_low_poly__game_ready.glb`,
@@ -456,10 +455,10 @@ export default function Cyber3DViewer({
       />
 
       {loading ? (
-        <div className="flex flex-col items-center gap-3 text-[#60a5fa] z-10">
-          <Loader2 className="h-9 w-9 animate-spin text-cyan-400" />
-          <span className="text-xs font-mono tracking-widest text-cyan-400 uppercase">
-            Initializing Digital Twin...
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#090b10]/90 z-10 pointer-events-none rounded-lg">
+          <Loader2 className="h-7 w-7 animate-spin text-violet-500 dark:text-violet-400 mb-2.5" />
+          <span className="text-[10px] font-mono tracking-widest text-slate-500 dark:text-white/30 uppercase">
+            Loading
           </span>
         </div>
       ) : (

@@ -8,8 +8,10 @@ import "./login.css";
 
 // Mini orbital visual
 const OrbitalVisual = () => {
+  const [mounted, setMounted] = useState(false);
   const [tick, setTick] = useState(0);
   useEffect(() => {
+    setMounted(true);
     let animationFrameId: number;
     const startTime = Date.now();
     const renderLoop = () => {
@@ -19,6 +21,8 @@ const OrbitalVisual = () => {
     renderLoop();
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
+
+  if (!mounted) return <svg viewBox="0 0 540 540" width="100%" height="100%" style={{ display: 'block' }} />;
 
   const t = tick * 0.05;
   return (
@@ -142,11 +146,13 @@ const IconGlobe = ({ size = 12 }: { size?: number }) => (
 );
 
 const LiveClock = () => {
-  const [now, setNow] = React.useState(new Date());
+  const [now, setNow] = React.useState<Date | null>(null);
   React.useEffect(() => {
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+  if (!now) return <span className="font-mono">--:--:-- UTC</span>;
   const hh = String(now.getUTCHours()).padStart(2, '0');
   const mm = String(now.getUTCMinutes()).padStart(2, '0');
   const ss = String(now.getUTCSeconds()).padStart(2, '0');

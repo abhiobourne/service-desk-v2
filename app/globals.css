@@ -199,6 +199,15 @@ html.light .glass-panel {
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+/* Global cursor pointer for all interactive elements */
+button, [role="button"], a, label[for], select { cursor: pointer; }
+
+/* Loading shimmer animation */
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
 /* Scanning Scanline animation */
 @keyframes scanline {
   0% {

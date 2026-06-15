@@ -5,7 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Environment, Bounds, useGLTF, useAnimations, useProgress, Html } from "@react-three/drei";
 import * as THREE from "three";
 import {
-  ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus,
+  ArrowLeft, Check, Grid3X3, Loader2, Box, MoveRight, Plus, X as XIcon,
   Maximize2, Minimize2, RotateCcw, Layers,
 } from "lucide-react";
 import { useTheme } from "../providers/ThemeProvider";
@@ -268,15 +268,11 @@ export function GlbViewerDark({
         {onAddActive && (
           <button
             onClick={onAddActive}
-            className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-mono backdrop-blur-sm transition shadow-sm ${
-              isActiveAdded
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-200"
-                : "border-violet-300 bg-white/80 text-violet-700 hover:border-violet-400 dark:border-violet-500/30 dark:bg-black/50 dark:text-violet-200 dark:hover:border-violet-400/60"
-            }`}
-            title={isActiveAdded ? "Remove component from ticket" : "Add component to ticket"}
+            className="flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-mono backdrop-blur-sm transition shadow-sm border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/25"
+            title="Remove component from selection"
           >
-            {isActiveAdded ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-            {isActiveAdded ? "Added" : "Add"}
+            <XIcon className="h-3.5 w-3.5" />
+            Remove
           </button>
         )}
         {canGoBack && (

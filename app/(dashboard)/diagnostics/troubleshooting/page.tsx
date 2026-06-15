@@ -635,6 +635,12 @@ export default function TroubleshootingPage() {
             next.add(child.design_version_id || child.design_uuid);
             return next;
           });
+          // Auto-add the navigated part to the selection
+          setSelectedParts(prev => {
+            const next = new Set(prev);
+            next.add(child.design_version_id || child.design_uuid);
+            return next;
+          });
         },
       });
       return acc;
@@ -1053,16 +1059,14 @@ export default function TroubleshootingPage() {
                             {item.node.design_type.replace("Assembly", "Asm")}
                           </span>
                         )}
-                        {/* Checkbox for selectable parts */}
-                        {isSelectable && (
+                        {/* Remove button — only shown when part is selected (parts auto-added via hotspot) */}
+                        {isSelectable && isPartSelected && (
                           <button
                             onClick={e => { e.stopPropagation(); togglePartSelect(item.key); }}
-                            className={`shrink-0 ml-1 transition ${isPartSelected ? "text-violet-400" : "text-slate-600 dark:text-white/20 hover:text-slate-600 dark:text-white/50"}`}
-                            title={isPartSelected ? "Deselect part" : "Select part for ticket"}
+                            className="shrink-0 ml-1 text-rose-400/70 hover:text-rose-500 transition"
+                            title="Remove part from selection"
                           >
-                            {isPartSelected
-                              ? <CheckSquare className="h-3 w-3" />
-                              : <Square className="h-3 w-3" />}
+                            <X className="h-3 w-3" />
                           </button>
                         )}
                       </div>
@@ -1212,8 +1216,8 @@ export default function TroubleshootingPage() {
                     hotspots={hotspots}
                     canGoBack={glbHistory.length > 0}
                     onBack={handleGlbBack}
-                    onAddActive={activeGlbNode ? () => togglePartSelect(activeGlbNodeKey) : undefined}
-                    isActiveAdded={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey)}
+                    onAddActive={!!activeGlbNodeKey && selectedParts.has(activeGlbNodeKey) ? () => togglePartSelect(activeGlbNodeKey) : undefined}
+                    isActiveAdded={true}
                   />
                 </div>
               )}
