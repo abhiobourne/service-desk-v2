@@ -4,12 +4,7 @@
  * No auto-login: token must be set via loginEmail() or session hydration.
  */
 
-const isBrowser = typeof window !== "undefined";
-const API_BASE_URL = isBrowser
-  ? `http://${window.location.hostname}:7000/api/v1`
-  : (process.env.NEXT_PUBLIC_API_SERVER
-      ? `${process.env.NEXT_PUBLIC_API_SERVER}/api/v1`
-      : "http://127.0.0.1:7000/api/v1");
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_SERVER || "http://127.0.0.1:7000"}/api/v1`;
 
 // ---------------------------------------------------------------------------
 // Token management — module-level cache kept in sync by AuthProvider
@@ -867,7 +862,7 @@ export async function fetchJurisdictions(params?: {
     if (params?.page) q.set("page", String(params.page));
     if (params?.search) q.set("search", params.search);
     if (params?.location_id) q.set("location_id", params.location_id);
-    const res = await fetch(`${API_BASE_URL}/user-jurisdictions?${q}`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/jurisdictions?${q}`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.items ?? [];
@@ -876,7 +871,7 @@ export async function fetchJurisdictions(params?: {
 
 export async function fetchJurisdictionLevels(): Promise<JurisdictionLevel[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/user-jurisdictions/levels?limit=50`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/jurisdiction-levels?limit=50`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return (data.items ?? []).map((l: any) => ({ id: l.id, name: l.name, rank: l.rank }));

@@ -8,7 +8,7 @@ import { fetchTicketCommunications } from "../../lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { getApiToken } from "../../lib/api";
 
-const SOCKET_URL = "http://localhost:7000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_SERVER || "http://localhost:7000";
 
 interface TicketChatDrawerProps {
   isOpen: boolean;

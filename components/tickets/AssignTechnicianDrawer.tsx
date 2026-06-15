@@ -52,8 +52,8 @@ export function AssignTechnicianDrawer({ isOpen, onClose, ticketData, onAssigned
   // Load technicians + levels on open
   useEffect(() => {
     if (!isOpen) return;
-    setSelectedProductId(ticketData?.productId ?? "");
-    setSelectedExpertise(ticketData?.faultyParts?.map((p) => p.id) ?? []);
+    setSelectedProductId("");
+    setSelectedExpertise([]);
     setSelectedRanks([]); setWorkMode(null); setSearch("");
     setLoadingTechs(true);
     Promise.all([fetchJurisdictions({ limit: 100 }), fetchJurisdictionLevels()]).then(([techs, lvls]) => {

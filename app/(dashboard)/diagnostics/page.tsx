@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Play, Pause, AlertTriangle, Activity,
+  Play, AlertTriangle, Activity,
   Cpu, TrendingUp, Zap, FileText, Layers, Box,
   Thermometer, Gauge, BarChart3,
 } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { GlbViewerDark } from "@/components/GlbViewerDark";
+import DiagnosisModal from "@/components/DiagnosisModal";
+import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
 import {
   fetchMachines, fetchTickets, createTicket,
   fetchProductCatalog, fetchTroubleshootingByProduct,
@@ -33,7 +35,23 @@ export default function DiagnosticsPage() {
   const [rawMachines, setRawMachines] = useState<ApiMachine[]>([]);
   const [rawTickets, setRawTickets] = useState<ApiTicket[]>([]);
   const [diagnosticRunning, setDiagnosticRunning] = useState(false);
+  const [showDiagModal, setShowDiagModal] = useState(false);
+  const [ticketDrawerOpen, setTicketDrawerOpen] = useState(false);
+  const [faultyNode, setFaultyNode] = useState<TroubleshootingDesignNode | null>(null);
   const [diagnosticStep, setDiagnosticStep] = useState<number>(2);
+
+  // Last diagnosis from localStorage cache
+  const [lastDiagCache, setLastDiagCache] = useState<{
+    design_id: string; design_name: string; design_type: string;
+    design_uuid: string; design_version_id: string; timestamp: string;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("lastDiagnosis");
+      if (raw) setLastDiagCache(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, [showDiagModal]); // re-read after each modal close
   const [loading, setLoading] = useState(true);
 
   // GLB / Digital Twin state
@@ -150,15 +168,10 @@ export default function DiagnosticsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setDiagnosticRunning(v => !v)}
-              className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ${diagnosticRunning
-                ? "bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_16px_rgba(225,29,72,0.25)]"
-                : "bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
-                }`}
+              onClick={() => setShowDiagModal(true)}
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
             >
-              {diagnosticRunning
-                ? <><Pause className="h-3.5 w-3.5" /> Halt Diagnostics</>
-                : <><Play className="h-3.5 w-3.5" /> Initiate Diagnostics</>}
+              <Play className="h-3.5 w-3.5" /> Initiate Diagnostics
             </button>
             <button
               onClick={() => router.push("/diagnostics/troubleshooting")}
@@ -203,73 +216,147 @@ export default function DiagnosticsPage() {
           ))}
         </div>
 
-        {/* ── Fault Summary Banner ── */}
-        <div className="bg-white dark:bg-[#0c0e16] border border-rose-200 dark:border-rose-500/15 rounded-xl overflow-hidden">
-          <div className="h-[3px] bg-gradient-to-r from-rose-600 via-rose-500 to-rose-400" />
-          <div className="p-5">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-full text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    Critical Fault
-                  </span>
-                  <code className="text-[11px] font-mono text-slate-400 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">
-                    ERR-9402-B
-                  </code>
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 leading-tight">
-                  {loading
-                    ? "Loading fault data…"
-                    : (machineName ? `${machineName} — Active Fault` : "System Fault Detected")}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-white/50 leading-relaxed max-w-2xl">
-                  Main actuator assembly delta-P dropped below minimum threshold during high-torque operation phase. Immediate inspection required.
-                </p>
-              </div>
-              <div className="shrink-0 bg-rose-50 dark:bg-rose-500/8 border border-rose-200 dark:border-rose-500/15 rounded-xl p-4 text-center min-w-[120px]">
-                <p className="text-[10px] font-mono text-slate-500 dark:text-white/35 uppercase tracking-widest mb-1">Duration</p>
-                <p className="text-2xl font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">22:10</p>
-                <p className="text-[10px] text-slate-400 dark:text-white/25 mt-1">Since 14:22 UTC</p>
-              </div>
-            </div>
+        {/* ── Fault Summary Banner — driven by last diagnosis cache ── */}
+        {lastDiagCache ? (() => {
+          const diagTs = new Date(lastDiagCache.timestamp);
+          const diagTime = diagTs.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const diagDate = diagTs.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+          const elapsedMs = Date.now() - diagTs.getTime();
+          const elapsedMin = Math.floor(elapsedMs / 60000);
+          const elapsedLabel = elapsedMin < 60
+            ? `${elapsedMin}m ago`
+            : `${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m ago`;
 
-            {/* Fault Progression Timeline */}
-            <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/5">
-              <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-5">
-                Fault Event Timeline
-              </p>
-              <div className="relative flex justify-between items-start">
-                <div className="absolute top-[14px] left-4 right-4 h-px bg-slate-200 dark:bg-white/8" />
-                {[
-                  { time: "14:02:00", label: "Normal Operation", color: "emerald", done: true },
-                  { time: "14:15:22", label: "Temp Anomaly", color: "emerald", done: true },
-                  { time: "14:18:45", label: "Vibration Spike", color: "amber", done: true },
-                  { time: "14:22:10", label: "Pressure Failure", color: "rose", pulse: true },
-                  { time: "Pending", label: "System Halt", color: "slate", muted: true },
-                ].map((step, i) => (
-                  <div key={i} className={`flex flex-col items-center gap-2 z-10 ${step.muted ? "opacity-35" : ""}`}>
-                    <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${step.color === "emerald" ? "bg-emerald-500 border-emerald-500 text-white"
-                      : step.color === "amber" ? "bg-amber-500 border-amber-500 text-white"
-                        : step.color === "rose" ? `bg-rose-500 border-rose-500 text-white ${step.pulse ? "shadow-[0_0_0_4px_rgba(244,63,94,0.2)]" : ""}`
-                          : "bg-white dark:bg-[#0c0e16] border-slate-300 dark:border-white/15 text-slate-400 dark:text-white/30"
-                      }`}>
-                      {step.done ? "✓" : step.color === "rose" ? "!" : "·"}
+          // Build timeline from the scan — fixed first 3 phases + the fault at the end
+          const timeline = [
+            { label: "Scan Started",     color: "emerald", done: true,  time: diagDate },
+            { label: "Components Loaded", color: "emerald", done: true,  time: diagDate },
+            { label: "Scan Complete",     color: "amber",   done: true,  time: diagDate },
+            { label: `${lastDiagCache.design_name.length > 18 ? lastDiagCache.design_name.slice(0, 16) + "…" : lastDiagCache.design_name} Fault`, color: "rose", pulse: true, time: diagTime },
+            { label: "Ticket Pending",    color: "slate",   muted: true, time: "Pending" },
+          ];
+
+          return (
+            <div className="bg-white dark:bg-[#0c0e16] border border-rose-200 dark:border-rose-500/15 rounded-xl overflow-hidden">
+              <div className="h-[3px] bg-gradient-to-r from-rose-600 via-rose-500 to-rose-400" />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-6 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 mb-2.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-full text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        Fault Detected
+                      </span>
+                      <code className="text-[11px] font-mono text-slate-400 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">
+                        {lastDiagCache.design_type}
+                      </code>
+                      <span className="text-[10px] font-mono text-slate-400 dark:text-white/25">
+                        {diagDate} · {diagTime}
+                      </span>
                     </div>
-                    <div className="text-center">
-                      <span className="block text-[9px] font-mono text-slate-400 dark:text-white/30 whitespace-nowrap">{step.time}</span>
-                      <span className={`block text-[11px] font-semibold mt-0.5 whitespace-nowrap ${step.color === "rose" ? "text-rose-600 dark:text-rose-400"
-                        : step.color === "emerald" ? "text-emerald-700 dark:text-emerald-400"
-                          : step.color === "amber" ? "text-amber-700 dark:text-amber-400"
-                            : "text-slate-400 dark:text-white/30"
-                        }`}>{step.label}</span>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 leading-tight">
+                      {lastDiagCache.design_name} — Fault Isolated
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-white/50 leading-relaxed max-w-2xl">
+                      {lastDiagCache.design_type} subsystem anomaly detected during automated diagnosis.
+                      Raise a service ticket to schedule inspection and repair.
+                    </p>
+                    <div className="flex items-center gap-2 mt-3.5 flex-wrap">
+                      <button
+                        onClick={() => {
+                          const node = twinTree.find(n => n.design_id === lastDiagCache.design_id) ?? {
+                            ...lastDiagCache,
+                            design_version: "", level: 0, parent_design_uuid: null, parent_version_id: null,
+                            root_design_id: "", root_design_name: "", drawing_files: [], kb_files: [], faq_items: [],
+                          } as TroubleshootingDesignNode;
+                          setFaultyNode(node);
+                          setTicketDrawerOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition shadow-sm"
+                      >
+                        <Zap className="w-3 h-3" />
+                        Raise Ticket
+                      </button>
+                      <button
+                        onClick={() => setShowDiagModal(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 text-xs font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-white/10 transition"
+                      >
+                        <Play className="w-3 h-3" />
+                        Re-run Diagnosis
+                      </button>
+                      <button
+                        onClick={() => { localStorage.removeItem("lastDiagnosis"); setLastDiagCache(null); }}
+                        className="text-[10px] font-mono text-slate-400 dark:text-white/25 hover:text-slate-600 dark:text-white/50 transition ml-auto"
+                        title="Clear cached result"
+                      >
+                        Clear
+                      </button>
                     </div>
                   </div>
-                ))}
+                  <div className="shrink-0 bg-rose-50 dark:bg-rose-500/8 border border-rose-200 dark:border-rose-500/15 rounded-xl p-4 text-center min-w-[130px]">
+                    <p className="text-[10px] font-mono text-slate-500 dark:text-white/35 uppercase tracking-widest mb-1">Detected</p>
+                    <p className="text-lg font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums leading-tight">{diagTime}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-white/25 mt-1">{elapsedLabel}</p>
+                  </div>
+                </div>
+
+                {/* Diagnosis timeline */}
+                <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/5">
+                  <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-5">
+                    Diagnosis Event Timeline
+                  </p>
+                  <div className="relative flex justify-between items-start">
+                    <div className="absolute top-[14px] left-4 right-4 h-px bg-slate-200 dark:bg-white/8" />
+                    {timeline.map((step, i) => (
+                      <div key={i} className={`flex flex-col items-center gap-2 z-10 ${(step as any).muted ? "opacity-35" : ""}`}>
+                        <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
+                          step.color === "emerald" ? "bg-emerald-500 border-emerald-500 text-white"
+                          : step.color === "amber"  ? "bg-amber-500 border-amber-500 text-white"
+                          : step.color === "rose"   ? `bg-rose-500 border-rose-500 text-white ${(step as any).pulse ? "shadow-[0_0_0_4px_rgba(244,63,94,0.2)]" : ""}`
+                          : "bg-white dark:bg-[#0c0e16] border-slate-300 dark:border-white/15 text-slate-400 dark:text-white/30"
+                        }`}>
+                          {step.done ? "✓" : step.color === "rose" ? "!" : "·"}
+                        </div>
+                        <div className="text-center">
+                          <span className="block text-[9px] font-mono text-slate-400 dark:text-white/30 whitespace-nowrap">{step.time}</span>
+                          <span className={`block text-[11px] font-semibold mt-0.5 whitespace-nowrap ${
+                            step.color === "rose"    ? "text-rose-600 dark:text-rose-400"
+                            : step.color === "emerald" ? "text-emerald-700 dark:text-emerald-400"
+                            : step.color === "amber"   ? "text-amber-700 dark:text-amber-400"
+                            : "text-slate-400 dark:text-white/30"
+                          }`}>{step.label}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
+          );
+        })() : (
+          /* No cache — prompt to run diagnosis */
+          <div className="bg-white dark:bg-[#0c0e16] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden">
+            <div className="h-[3px] bg-gradient-to-r from-slate-300 via-slate-200 to-slate-300 dark:from-white/10 dark:via-white/5 dark:to-white/10" />
+            <div className="p-5 flex items-center gap-5 flex-wrap">
+              <div className="w-11 h-11 shrink-0 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-slate-400 dark:text-white/25" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-700 dark:text-white/60">No diagnosis data yet</p>
+                <p className="text-xs text-slate-400 dark:text-white/30 mt-0.5 leading-relaxed">
+                  Run a full system scan to detect component faults. Results will appear here and persist across sessions.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDiagModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#2D6CFA] hover:bg-[#255DE6] text-white text-xs font-semibold rounded-lg transition shadow-sm shadow-blue-200 dark:shadow-none shrink-0"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Initiate Diagnosis
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Main Grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -500,6 +587,24 @@ export default function DiagnosticsPage() {
           </div>
         </div>
       </div>
+
+      <DiagnosisModal
+        open={showDiagModal}
+        onClose={() => setShowDiagModal(false)}
+        glbUrl={twinGlbUrl}
+        components={twinTree}
+        onRaiseTicket={(node) => {
+          setFaultyNode(node);
+          setTicketDrawerOpen(true);
+        }}
+      />
+
+      <AddTicketDrawer
+        isOpen={ticketDrawerOpen}
+        onClose={() => { setTicketDrawerOpen(false); setFaultyNode(null); }}
+        onCreated={() => { setTicketDrawerOpen(false); setFaultyNode(null); }}
+        selectedPartNodes={faultyNode ? [faultyNode] : []}
+      />
     </div>
   );
 }
