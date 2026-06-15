@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { X, SendHorizontal, Search, ExternalLink, AlertCircle } from "lucide-react";
+import { X, SendHorizontal, ExternalLink, AlertCircle } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 import { fetchTicketCommunications, getApiToken } from "../../lib/api";
@@ -26,14 +26,34 @@ interface ChatMsg {
   isUnread?: boolean;
 }
 
+interface TicketCommunicationMessage {
+  id?: string;
+  sender_id?: string;
+  recipient_id?: string;
+  message?: string;
+  createdAt: string;
+  is_read?: boolean;
+  is_system?: boolean;
+  type?: string;
+  metadata?: { status?: unknown } | null;
+}
+
+interface SocketError {
+  message?: string;
+}
+
+interface SendMessageAck {
+  success?: boolean;
+  message?: string;
+}
+
 export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicketChatProps) {
   const { user } = useAuth();
-  const [rawMessages, setRawMessages] = useState<any[]>([]);
-  const [liveMessages, setLiveMessages] = useState<any[]>([]);
+  const [rawMessages, setRawMessages] = useState<TicketCommunicationMessage[]>([]);
+  const [liveMessages, setLiveMessages] = useState<TicketCommunicationMessage[]>([]);
   // messageId → isRead (false = unread for current user)
   const [readMap, setReadMap] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [searchVal, setSearchVal] = useState("");
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -44,13 +64,14 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
 
   // Load past messages from REST
   useEffect(() => {
-    setLiveMessages([]);
-    setReadMap({});
     fetchTicketCommunications(ticketId).then((msgs) => {
-      setRawMessages(msgs);
+      const typedMessages = msgs as TicketCommunicationMessage[];
+      setLiveMessages([]);
+      setReadMap({});
+      setRawMessages(typedMessages);
       // Build initial read map from REST data
       const map: Record<string, boolean> = {};
-      for (const m of msgs) {
+      for (const m of typedMessages) {
         if (m.id) map[m.id] = !!m.is_read;
       }
       setReadMap(map);
@@ -86,27 +107,28 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
     });
 
     // NestJS emits 'exception' when a @SubscribeMessage handler throws WsException
-    sock.on("exception", (error: any) => {
+    sock.on("exception", (error: SocketError) => {
       const msg = error?.message || "Something went wrong";
       toast.error(msg);
     });
 
-    sock.on("ticket:message-created", (msg: any) => {
+    sock.on("ticket:message-created", (msg: TicketCommunicationMessage) => {
       setLiveMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       // Update read map for the new message
-      if (msg.id) {
-        setReadMap((prev) => ({ ...prev, [msg.id]: !!msg.is_read }));
+      const messageId = msg.id;
+      if (messageId) {
+        setReadMap((prev) => ({ ...prev, [messageId]: !!msg.is_read }));
       }
       // If this message is for us and not auto-read, mark it read now (we're viewing)
-      if (msg.recipient_id === user?.id && !msg.is_read) {
-        sock.emit("ticket:mark-as-read", { ticketId, messageIds: [msg.id] });
+      if (messageId && msg.recipient_id === user?.id && !msg.is_read) {
+        sock.emit("ticket:mark-as-read", { ticketId, messageIds: [messageId] });
       }
     });
 
-    sock.on("ticket:messages-marked-as-read", (data: any) => {
+    sock.on("ticket:messages-marked-as-read", (data: { messageIds?: string[] }) => {
       const ids: string[] = data.messageIds ?? [];
       if (ids.length === 0) return;
       setReadMap((prev) => {
@@ -116,7 +138,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
       });
     });
 
-    sock.on("ticket:status-updated", (data: any) => {
+    sock.on("ticket:status-updated", (data: { status?: string }) => {
       if (data?.status) setLiveStatus(data.status);
     });
 
@@ -143,7 +165,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
       // A message is unread for the current user if they are the recipient AND not yet read
       const isUnread =
         m.recipient_id === user?.id &&
-        !(readMap[m.id] ?? m.is_read ?? true);
+        !(m.id ? readMap[m.id] : m.is_read ?? true);
       return {
         id: m.id,
         sender: fromMe ? "user" : "agent",
@@ -190,7 +212,7 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
     socketRef.current.emit(
       "ticket:send-message",
       { ticketId, message: msgToSend, metadata: null },
-      (ack: any) => {
+      (ack: SendMessageAck | undefined) => {
         // NestJS returns { success: true } on success; if ack has no success, restore
         if (ack && !ack.success) {
           setMessage(msgToSend);
@@ -213,29 +235,40 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
   const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
   return (
-    <div className="flex flex-col h-full bg-[#090b10]">
+    <div className="flex h-full flex-col bg-white dark:bg-[#090b10]">
       {/* Header */}
-      <div className="h-14 shrink-0 border-b border-white/5 bg-[#0c0e16] flex items-center gap-3 px-4">
-        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-          <span className="text-xs font-mono font-bold text-white">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 dark:border-white/5 dark:bg-[#0c0e16]">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 shadow-sm">
+          <span className="text-xs font-bold text-white">
             {assigneeName ? assigneeName[0].toUpperCase() : "A"}
           </span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className={`text-xs font-mono font-semibold truncate ${assigneeName ? "text-white" : "text-white/40"}`}>
+            <div className={`truncate text-sm font-semibold ${assigneeName ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-white/40"}`}>
               {assigneeName ?? "Awaiting Assignment"}
             </div>
             {/* Connection dot */}
             <span
               title={connectError ? `Error: ${connectError}` : connected ? "Connected" : "Connecting…"}
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${connectError ? "bg-rose-400 animate-pulse" : connected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`}
-            />
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                connectError
+                  ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20"
+                  : connected
+                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20"
+                    : "bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                connectError ? "bg-rose-500" : connected ? "bg-emerald-500" : "animate-pulse bg-amber-500"
+              }`} />
+              {connectError ? "Offline" : connected ? "Active" : "Connecting"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
-            <code className="text-[9px] font-mono text-blue-400">#{ticket.ticket_id}</code>
+            <code className="text-[10px] font-mono text-blue-600 dark:text-blue-400">#{ticket.ticket_id}</code>
             {unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-[8px] font-mono font-bold text-blue-300">
+              <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] font-bold text-blue-600 ring-1 ring-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:ring-blue-500/30">
                 {unreadCount} unread
               </span>
             )}
@@ -246,69 +279,78 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             <button
               onClick={onOpenDetail}
               title="Open full details"
-              className="p-1.5 rounded text-white/30 hover:text-white/70 hover:bg-white/5 transition"
+              className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-white/70"
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           )}
-          <button
-            onClick={() => setShowSearch((v) => !v)}
-            className={`p-1.5 rounded transition ${showSearch ? "text-violet-400 bg-violet-500/10" : "text-white/30 hover:text-white/70 hover:bg-white/5"}`}
-          >
-            <Search className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onClose} className="p-1.5 rounded text-white/30 hover:text-white/70 hover:bg-white/5 transition">
+          <button onClick={onClose} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-white/70">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Search bar */}
-      {showSearch && (
-        <div className="px-4 py-2.5 border-b border-white/5 bg-[#0c0e16]">
+      <div className="border-b border-slate-200 bg-white px-5 py-3 dark:border-white/5 dark:bg-[#0c0e16]">
+        <div className="relative">
           <input
             type="text"
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
             placeholder="Search messages…"
             autoFocus
-            className="w-full bg-transparent border border-white/10 text-white text-xs font-mono px-3 py-1.5 rounded-lg focus:outline-none focus:border-violet-500/40 placeholder:text-white/20"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-9 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/20 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
           />
+          {searchVal && (
+            <button
+              type="button"
+              onClick={() => setSearchVal("")}
+              aria-label="Clear message search"
+              title="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 bg-[#08090e] space-y-1">
+      <div className="flex-1 space-y-1 overflow-y-auto bg-slate-50 px-5 py-5 dark:bg-[#08090e]">
         {displayed.length === 0 && (
-          <div className="text-center text-white/20 text-xs font-mono mt-12">No messages yet</div>
+          <div className="mt-12 text-center text-xs text-slate-400 dark:text-white/20">No messages yet</div>
         )}
         {displayed.map((msg, idx) => {
           const showDay = idx === 0 || dayKey(displayed[idx - 1].createdAt) !== dayKey(msg.createdAt);
           return (
             <React.Fragment key={`${msg.id ?? "welcome"}-${idx}`}>
               {showDay && (
-                <div className="text-center text-[9px] font-mono text-white/25 my-3">{fmtDay(msg.createdAt)}</div>
+                <div className="my-4 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
+                  <span className="text-[10px] font-medium text-slate-400 dark:text-white/25">{fmtDay(msg.createdAt)}</span>
+                  <span className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
+                </div>
               )}
               <div className={`flex mb-2 ${msg.sender === "user" && !msg.isSystem ? "justify-end" : "justify-start"}`}>
-                <div className={`relative px-4 py-2.5 text-xs font-mono leading-relaxed shadow-sm ${msg.isBackendSystem
-                  ? "max-w-[85%] bg-slate-700/60 border border-slate-600/40 text-slate-300 rounded-xl rounded-bl-sm"
+                <div className={`relative px-4 py-3 text-xs leading-relaxed ${msg.isBackendSystem
+                  ? "max-w-[88%] rounded-xl border border-blue-200 bg-blue-50 text-slate-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100/80"
                   : msg.isSystem
-                    ? "max-w-[85%] bg-white/5 border border-white/8 text-white/50 rounded-xl"
+                    ? "max-w-[88%] rounded-xl border border-blue-100 bg-white text-slate-600 shadow-sm dark:border-white/8 dark:bg-white/5 dark:text-white/55"
                     : msg.sender === "user"
-                      ? "max-w-[70%] bg-blue-600 text-white rounded-2xl rounded-br-sm"
+                      ? "max-w-[76%] rounded-2xl rounded-br-md bg-blue-600 text-white shadow-sm"
                       : msg.isUnread
-                        ? "max-w-[70%] bg-[#0f1420] border border-blue-500/30 text-white/80 rounded-2xl rounded-bl-sm ring-1 ring-blue-500/20"
-                        : "max-w-[70%] bg-white/8 text-white/70 rounded-2xl rounded-bl-sm border border-white/8"
+                        ? "max-w-[76%] rounded-2xl rounded-bl-md border border-blue-200 bg-white text-slate-800 shadow-sm ring-2 ring-blue-100 dark:border-blue-500/30 dark:bg-[#0f1420] dark:text-white/80 dark:ring-blue-500/10"
+                        : "max-w-[76%] rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-white/8 dark:bg-white/8 dark:text-white/70"
                   }`}>
                   {msg.isBackendSystem && (
-                    <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-slate-400">System</div>
+                    <div className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">System update</div>
                   )}
                   {/* Unread indicator dot */}
                   {msg.isUnread && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-violet-400 rounded-full border-2 border-[#08090e]" />
+                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-slate-50 bg-blue-500 dark:border-[#08090e]" />
                   )}
-                  <p className="whitespace-pre-line">{msg.text}</p>
-                  <div className="text-[9px] mt-1.5 text-right opacity-50">{fmtTime(msg.createdAt)}</div>
+                  <p className={`whitespace-pre-line ${msg.sender === "user" && !msg.isSystem ? "text-white" : ""}`}>{msg.text}</p>
+                  <div className={`mt-1.5 text-right text-[9px] opacity-55 ${msg.sender === "user" && !msg.isSystem ? "text-white" : ""}`}>{fmtTime(msg.createdAt)}</div>
                 </div>
               </div>
             </React.Fragment>
@@ -319,30 +361,30 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
 
       {/* Input */}
       {isClosedOrResolved ? (
-        <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
-          <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
-            <p className="text-xs font-mono text-white/40">
+        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 dark:border-white/5 dark:bg-[#090b10]">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-white/8 dark:bg-white/3">
+            <p className="text-xs text-slate-500 dark:text-white/40">
               {(liveStatus || ticket.status || "").toLowerCase().includes("resolv") ? "✓ Ticket resolved — chat disabled." : "Ticket closed — messaging disabled."}
             </p>
           </div>
         </div>
       ) : !ticket.assignee_details || (!ticket.assignee_details.firstName && !ticket.assignee_details.lastName) ? (
-        <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
-          <div className="bg-white/3 border border-white/8 rounded-xl p-3 text-center">
-            <p className="text-xs font-mono text-white/50">
+        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 dark:border-white/5 dark:bg-[#090b10]">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-center dark:border-blue-500/20 dark:bg-blue-500/10">
+            <p className="text-xs text-blue-700 dark:text-blue-300/80">
               Technician not assigned yet. Please wait for the technician to be assigned.
             </p>
           </div>
         </div>
       ) : connectError ? (
-        <div className="bg-[#090b10] border-t border-white/5 px-4 py-4 shrink-0">
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-2">
+        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 dark:border-white/5 dark:bg-[#090b10]">
+          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-500/20 dark:bg-rose-500/10">
             <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
             <p className="text-xs font-mono text-rose-400/80 truncate">Connection failed — check your session</p>
           </div>
         </div>
       ) : (
-        <div className="bg-[#090b10] border-t border-white/5 px-3 py-3 flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-white/5 dark:bg-[#090b10]">
           <input
             type="text"
             value={message}
@@ -350,15 +392,15 @@ export function InlineTicketChat({ ticket, onClose, onOpenDetail }: InlineTicket
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
             placeholder={connected ? "Start Typing" : "Connecting…"}
             disabled={!connected}
-            className="flex-1 bg-white/5 rounded-full px-4 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none border border-white/5 focus:border-violet-500/30 disabled:opacity-40"
+            className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-40 dark:border-white/8 dark:bg-white/5 dark:text-white dark:placeholder:text-white/20 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
           />
           <button
             type="button"
             onClick={sendMessage}
             disabled={!message.trim() || !connected}
-            className={`transition ${message.trim() && connected ? "text-blue-400 hover:text-blue-300" : "text-white/20 cursor-not-allowed"}`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${message.trim() && connected ? "bg-blue-600 text-white shadow-sm hover:bg-blue-700" : "cursor-not-allowed bg-slate-100 text-slate-300 dark:bg-white/5 dark:text-white/20"}`}
           >
-            <SendHorizontal className="w-5 h-5" />
+            <SendHorizontal className="h-4 w-4" />
           </button>
         </div>
       )}

@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  UserPlus, ClipboardList, Building2, User, Ticket,
+  UserPlus, MessageCircle, ClipboardList, Building2, User, Ticket,
   ShoppingCart, Package, FileText, FileCode, FileType, File as FileIcon,
   Eye, Download, Search, Image as ImageIcon, Loader2, ChevronLeft, ChevronRight,
   CheckCircle2, Clock, AlertCircle, ShieldCheck, Zap, Box,
-  Info, MessageSquare, CheckCheck, XCircle, Paperclip, ChevronDown,
+  Info, MessageSquare, XCircle, Paperclip, ChevronDown,
 } from "lucide-react";
 import {
   fetchOrderTicketById, updateOrderTicketStatus, resolveOrderTicketWithCode,
@@ -20,6 +20,7 @@ import { TicketStatusDropdown } from "@/components/tickets/TicketStatusDropdown"
 import { HappyCodeModal } from "@/components/tickets/HappyCodeModal";
 import { AssignTechnicianDrawer } from "@/components/tickets/AssignTechnicianDrawer";
 import { InlineTicketChat } from "@/components/tickets/InlineTicketChat";
+import { TicketChatDrawer } from "@/components/tickets/TicketChatDrawer";
 import { InspectionModal } from "@/components/tickets/InspectionModal";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -68,16 +69,36 @@ function getActiveStageIndex(ticket: OrderTicket): number {
   return 1;
 }
 
+interface TicketCommunicationMessage {
+  message?: string | null;
+  createdAt: string;
+  is_system?: boolean;
+  type?: string;
+  metadata?: { status?: unknown } | null;
+}
+
+type TicketWithProductFallback = OrderTicket & {
+  product_name?: string | null;
+  line_items?: Array<{ product_name?: string | null }>;
+};
+
+interface InfoRow {
+  Icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string | null | undefined;
+  mono?: boolean;
+}
+
 // Parse assignment/reassignment names from backend system messages
-function parseAssignmentHistory(messages: any[]): { name: string; createdAt: string }[] {
+function parseAssignmentHistory(messages: TicketCommunicationMessage[]): { name: string; createdAt: string }[] {
   return messages
     .filter((m) => m.is_system === true || m.type === "auto" || !!m.metadata?.status)
-    .filter((m) => (m.message as string)?.toLowerCase().includes("assigned to"))
+    .filter((m) => m.message?.toLowerCase().includes("assigned to"))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .map((m) => {
-      const match = (m.message as string)?.match(/assigned to ([^.!\n]+)/i);
+      const match = m.message?.match(/assigned to ([^.!\n]+)/i);
       const name = match?.[1]?.trim();
-      return name ? { name, createdAt: m.createdAt as string } : null;
+      return name ? { name, createdAt: m.createdAt } : null;
     })
     .filter((x): x is { name: string; createdAt: string } => !!x);
 }
@@ -634,20 +655,22 @@ export default function TicketDetailPage() {
   const { user, loading: authLoading } = useAuth();
   const { can, isClient } = useAbility();
 
-  const [ticket, setTicket]                   = useState<OrderTicket | null>(null);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState(false);
-  const [updatingStatus, setUpdatingStatus]   = useState(false);
-  const [activeTab, setActiveTab]             = useState<ActiveTab>("details");
+  const [ticket, setTicket] = useState<OrderTicket | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const [inspections, setInspections]                   = useState<TicketInspectionRecord[]>([]);
-  const [loadingInsp, setLoadingInsp]                   = useState(false);
-  const [assignmentHistory, setAssignmentHistory]       = useState<{ name: string; createdAt: string }[]>([]);
-
-  const [assignOpen,  setAssignOpen]  = useState(false);
-  const [happyOpen,   setHappyOpen]   = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [happyOpen, setHappyOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
   const [previewUrl,  setPreviewUrl]  = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("details");
+  const [inspections, setInspections] = useState<TicketInspectionRecord[]>([]);
+  const [loadingInsp, setLoadingInsp] = useState(false);
+  const [assignmentHistory, setAssignmentHistory] = useState<
+    { name: string; createdAt: string }[]
+  >([]);
 
   const mdRef   = useRef<HTMLDivElement>(null);
   const docxRef = useRef<HTMLDivElement>(null);
@@ -661,7 +684,7 @@ export default function TicketDetailPage() {
     setLoading(false);
     // Parse assignment history from system messages
     const msgs = await fetchTicketCommunications(t.id).catch(() => []);
-    setAssignmentHistory(parseAssignmentHistory(msgs));
+    setAssignmentHistory(parseAssignmentHistory(msgs as TicketCommunicationMessage[]));
   };
 
   // ticket.id is the UUID used by the inspections API (not ticket.ticket_id)
@@ -672,13 +695,50 @@ export default function TicketDetailPage() {
     setLoadingInsp(false);
   };
 
-  useEffect(() => { if (user) load(); }, [id, user]);
+  useEffect(() => {
+    if (!user || !id) return;
+    let cancelled = false;
+
+    fetchOrderTicketById(id).then(async (nextTicket) => {
+      if (cancelled) return;
+      if (!nextTicket) {
+        setError(true);
+        setLoading(false);
+        return;
+      }
+
+      setTicket(nextTicket);
+      setLoading(false);
+      const messages = await fetchTicketCommunications(nextTicket.id).catch(() => []);
+      if (!cancelled) {
+        setAssignmentHistory(
+          parseAssignmentHistory(messages as TicketCommunicationMessage[]),
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user]);
 
   useEffect(() => {
-    if (activeTab === "inspection" && ticket) {
-      loadInspections(ticket.id);
-    }
-  }, [activeTab, ticket?.id]);
+    if (activeTab !== "inspection" || !ticket) return;
+    let cancelled = false;
+
+    fetchTicketInspections(ticket.id)
+      .catch(() => [])
+      .then((data) => {
+        if (!cancelled) {
+          setInspections(data ?? []);
+          setLoadingInsp(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, ticket]);
 
   // Markdown preview
   useEffect(() => {
@@ -741,16 +801,19 @@ export default function TicketDetailPage() {
     }
   };
 
+  const attachmentSource = ticket?.attachments_url;
   const attachmentUrls = useMemo((): string[] => {
-    if (!ticket?.attachments_url) return [];
-    if (Array.isArray(ticket.attachments_url)) return ticket.attachments_url;
+    if (!attachmentSource) return [];
+    if (Array.isArray(attachmentSource)) return attachmentSource;
     try {
-      const p = JSON.parse(ticket.attachments_url);
-      return Array.isArray(p) ? p : [ticket.attachments_url];
+      const parsed: unknown = JSON.parse(attachmentSource);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : [attachmentSource];
     } catch {
-      return [ticket.attachments_url as string];
+      return [attachmentSource];
     }
-  }, [ticket?.attachments_url]);
+  }, [attachmentSource]);
 
   const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -791,10 +854,11 @@ export default function TicketDetailPage() {
   };
   const sb = STATUS_BADGE[ticket.status] ?? { bg: "bg-slate-100 dark:bg-white/10", text: "text-slate-600 dark:text-white/50", label: ticket.status };
 
+  const ticketWithFallback = ticket as TicketWithProductFallback;
   const productName =
     ticket.items?.[0]?.product_name ??
-    (ticket as any).product_name ??
-    (ticket as any).line_items?.[0]?.product_name ??
+    ticketWithFallback.product_name ??
+    ticketWithFallback.line_items?.[0]?.product_name ??
     ticket.product_id ?? "—";
 
   const TABS: { key: ActiveTab; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
@@ -804,59 +868,72 @@ export default function TicketDetailPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white">
-
-      {/* ── Header ── */}
-      <PageHeader
-        breadcrumbs={[
-          { label: "Dashboard", href: "/" },
-          { label: "Tickets",   href: "/tickets" },
-          { label: ticket.ticket_id },
-        ]}
-        backHref="/tickets"
-        icon={<Ticket className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-        iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
-        title={
-          <>
-            <span className="font-mono text-slate-900 dark:text-white">{ticket.ticket_id}</span>
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide border ${sb.bg} ${sb.text}`}
-              style={{ borderColor: "transparent" }}>
-              {sb.label}
-            </span>
-          </>
-        }
-        subtitle={`Raised on ${fmtDate(ticket.createdAt)}`}
-        right={
-          <>
-            {/* Inspections + Assign + Status — hidden from clients entirely */}
-            {!isClient && (
-              <>
-                {can("assign", "tickets") && (
-                  <button
-                    onClick={() => setInspectOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-slate-200 dark:border-white/10 rounded-full text-slate-600 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5" />Inspections
-                  </button>
-                )}
-                <button
-                  onClick={() => setAssignOpen(true)}
-                  disabled={!can("assign", "tickets")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-blue-300 dark:border-blue-500/30 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-default transition"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  {assigneeName ?? "Assign Technician"}
+    <div className="flex h-full overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white">
+      {/* Left: ticket details */}
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* ── Header ── */}
+        <PageHeader
+          breadcrumbs={[
+            { label: "Dashboard", href: "/" },
+            { label: "Tickets", href: "/tickets" },
+            { label: ticket.ticket_id },
+          ]}
+          backHref="/tickets"
+          icon={<Ticket className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+          iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
+          title={
+            <>
+              <span className="font-mono">{ticket.ticket_id}</span>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide ${sb.bg} ${sb.text}`}>
+                {sb.label}
+              </span>
+            </>
+          }
+          subtitle={`Raised on ${fmtDate(ticket.createdAt)}`}
+          right={
+            <>
+              <button
+                onClick={() => setChatOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-white/40 dark:hover:bg-white/5 dark:hover:text-white"
+                title="Open Chat"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+              {can("assign", "tickets") && (
+                <button onClick={() => setInspectOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-slate-200 dark:border-white/10 rounded-full text-slate-500 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition">
+                  <ClipboardList className="w-3.5 h-3.5" />Inspections
                 </button>
-                <TicketStatusDropdown
-                  value={ticket.status}
-                  onChange={handleStatusChange}
-                  disabled={updatingStatus}
-                />
-              </>
-            )}
-          </>
-        }
-      />
+              )}
+              {can("assign", "tickets") ? (
+                <>
+                  <button onClick={() => setAssignOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-blue-300 dark:border-blue-500/30 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition">
+                    <UserPlus className="w-3.5 h-3.5" />
+                    {assigneeName ?? "Assign Technician"}
+                  </button>
+                  <TicketStatusDropdown
+                    value={ticket.status}
+                    onChange={handleStatusChange}
+                    disabled={updatingStatus}
+                  />
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border border-slate-200 dark:border-white/8 rounded-full text-slate-400 dark:text-white/30 bg-slate-50 dark:bg-white/3">
+                    <UserPlus className="w-3.5 h-3.5" />
+                    {assigneeName ?? "Unassigned"}
+                  </span>
+                  <TicketStatusDropdown
+                    value={ticket.status}
+                    onChange={handleStatusChange}
+                    disabled={updatingStatus || isClient}
+                  />
+                </>
+              )}
+            </>
+          }
+        />
 
       {/* ── Tab bar ── */}
       <div className="bg-white dark:bg-[#090b10] border-b border-slate-200 dark:border-white/5 px-6 shrink-0">
@@ -864,7 +941,10 @@ export default function TicketDetailPage() {
           {TABS.map(({ key, label, Icon }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => {
+                if (key === "inspection") setLoadingInsp(true);
+                setActiveTab(key);
+              }}
               className={[
                 "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap",
                 activeTab === key
@@ -906,7 +986,7 @@ export default function TicketDetailPage() {
                       { Icon: Package,      label: "Machine", value: productName                                     },
                       { Icon: ShoppingCart, label: "Order",   value: ticket.order_id,   mono: true                  },
                       { Icon: Building2,    label: "Client",  value: ticket.client_name ?? ticket.client_id ?? "—"  },
-                    ] as const).map(({ Icon, label, value, mono }: any) => (
+                    ] satisfies InfoRow[]).map(({ Icon, label, value, mono }) => (
                       <div key={label} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/3 rounded-lg">
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-500 text-xs">
                           <Icon className="w-3.5 h-3.5 shrink-0" />{label}
@@ -932,7 +1012,7 @@ export default function TicketDetailPage() {
                       { Icon: Ticket,   label: "Ticket ID",  value: ticket.ticket_id,               mono: true },
                       { Icon: User,     label: "Raised By",  value: ticket.user_name ?? ticket.user_id ?? "—" },
                       ...(assigneeName ? [{ Icon: UserPlus, label: "Assigned To", value: assigneeName }] : []),
-                    ] as const).map(({ Icon, label, value, mono }: any) => (
+                    ] satisfies InfoRow[]).map(({ Icon, label, value, mono }) => (
                       <div key={label} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/3 rounded-lg">
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-500 text-xs">
                           <Icon className="w-3.5 h-3.5 shrink-0" />{label}
@@ -1093,7 +1173,7 @@ export default function TicketDetailPage() {
         </div>
       )}
 
-      {/* ── Modals / Drawers ── */}
+      {/* Modals / Drawers */}
       <HappyCodeModal
         open={happyOpen}
         onClose={() => setHappyOpen(false)}
@@ -1114,13 +1194,30 @@ export default function TicketDetailPage() {
           orderId:     ticket.order_id,
           productId:   ticket.product_uuid ?? ticket.product_id ?? "",
           productUuid: ticket.product_uuid ?? "",
-          designs:     ticket.designs as any,
+          designs:     ticket.designs,
           title:       ticket.reason ?? "Support Request",
           productName: ticket.items?.[0]?.product_name ?? "General Product",
           faultyParts: ticket.parts?.map((p) => ({ id: p.design_uuid, name: p.part_name })) ?? [],
           assigneeId:  ticket.assignee_details?.id,
         }}
         onAssigned={load}
+      />
+
+      <TicketChatDrawer
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        ticketId={ticket.id}
+        ticketInfo={{
+          ticket_id: ticket.ticket_id,
+          status: ticket.status,
+          createdAt: ticket.createdAt,
+          order_id: ticket.order_id,
+          product_name: ticket.items?.[0]?.product_name,
+          reason: ticket.reason,
+          description: ticket.description ?? undefined,
+          user_name: ticket.user_name ?? undefined,
+          assignee_details: ticket.assignee_details,
+        }}
       />
 
       <InspectionModal
@@ -1131,6 +1228,7 @@ export default function TicketDetailPage() {
         }}
         ticket={ticket}
       />
+    </div>
     </div>
   );
 }
