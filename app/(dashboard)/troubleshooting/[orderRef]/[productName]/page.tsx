@@ -12,7 +12,6 @@ import {
   ApiProductCatalog, TroubleshootingDesignNode,
 } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
-import { useAbility } from "@/providers/AbilityProvider";
 import { GlbViewerDark, type DarkHotspot } from "@/components/GlbViewerDark";
 import { AddTicketDrawer } from "@/components/tickets/AddTicketDrawer";
 import { TroubleshootingAssistant } from "@/components/TroubleshootingAssistant";
@@ -108,12 +107,10 @@ function buildFlatList(
         ...node.kb_files.map(f => ({ ...f, kind_: "kb" as const })),
       ];
       const hasFaqs = node.faq_items.length > 0;
-      const isExpandable = hasChildren || allFiles.length > 0 || hasFaqs;
 
       result.push({ kind: "node", key, node, depth, isExpanded: isExp, isLastChild: isLast });
 
       if (isExp) {
-        const fileCount = allFiles.length + (hasFaqs ? 1 : 0);
         allFiles.forEach((f, fi) => {
           const fIsLast = fi === allFiles.length - 1 && !hasFaqs;
           result.push({
@@ -291,7 +288,7 @@ export default function TroubleshootingPage() {
   const orderRef = params?.orderRef ? decodeURIComponent(params.orderRef) : "";
   const productNameFromUrl = params?.productName ? decodeURIComponent(params.productName) : "";
 
-  const isFullView = searchParams.get("full") === "1" || !!(params?.orderRef && params?.productName);
+  const isFullView = searchParams.get("full") === "1";
   const queryProductId = searchParams.get("productId") ?? "";
   const queryClientId = searchParams.get("clientId") ?? "";
   const queryOrderId = searchParams.get("orderId") ?? "";
@@ -362,12 +359,15 @@ export default function TroubleshootingPage() {
       if (queryOrderId) {
         const matched = list.find((o: any) => o.id === queryOrderId || o.order_id === queryOrderId);
         if (matched) setSelectedOrderCtx(matched);
+      } else if (orderRef) {
+        const matched = list.find((o: any) => o.order_id === orderRef);
+        if (matched) setSelectedOrderCtx(matched);
       } else if (list.length > 0) {
         setSelectedOrderCtx(list[0]);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isFullView, queryProductId, productNameFromUrl]);
+  }, [user, isFullView, queryProductId, productNameFromUrl, queryOrderId, orderRef]);
 
   useEffect(() => {
     setSelectedParts(new Set());
@@ -504,13 +504,6 @@ export default function TroubleshootingPage() {
     });
   }, []);
 
-  const selectedPartsData = useMemo(() => {
-    return Array.from(selectedParts).map(key => {
-      const node = treeNodes.find(n => (n.design_version_id || n.design_uuid) === key);
-      return node ? { key, name: node.design_name, type: node.design_type } : null;
-    }).filter(Boolean) as Array<{ key: string; name: string; type: string }>;
-  }, [selectedParts, treeNodes]);
-
   const selectedPartNodes = useMemo(() => {
     return Array.from(selectedParts)
       .map(key => treeNodes.find(n => (n.design_version_id || n.design_uuid) === key))
@@ -644,7 +637,7 @@ export default function TroubleshootingPage() {
   const flatItems = useMemo<FlatItem[]>(() => {
     if (!treeNodes.length) return [];
     const effectiveExpanded = search.trim() ? searchExpandedSet : expanded;
-    const all = buildFlatList(treeNodes, effectiveExpanded, activeGlbId, activeDocSrc ? "doc" : null, selectedProductId, selectedProduct?.product_name ?? "Product");
+    const all = buildFlatList(treeNodes, effectiveExpanded, activeGlbId, activeDocSrc ? "doc" : null, selectedProductId, selectedProduct?.product_name ?? productNameFromUrl ?? "Product");
     if (!search.trim()) return all;
     return all.filter(item => {
       if (item.kind === "node") {
@@ -654,7 +647,7 @@ export default function TroubleshootingPage() {
       if (item.kind === "file") return fuzzyAny([item.name], search);
       return false;
     });
-  }, [treeNodes, expanded, searchExpandedSet, activeGlbId, activeDocSrc, selectedProductId, selectedProduct, search]);
+  }, [treeNodes, expanded, searchExpandedSet, activeGlbId, activeDocSrc, selectedProductId, selectedProduct, search, productNameFromUrl]);
 
   const nodeByKey = useCallback((key: string) => treeNodes.find(n => (n.design_version_id || n.design_uuid) === key), [treeNodes]);
 
@@ -674,58 +667,41 @@ export default function TroubleshootingPage() {
   }
 
   return (
-    <div className={`${isFullView ? "fixed inset-0 z-50" : "h-screen"} flex flex-col overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white`}>
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-[#06070a] text-slate-900 dark:text-white">
 
-      {!isFullView && (
-        <PageHeader
-          breadcrumbs={[
-            { label: "Dashboard", href: "/" },
-            { label: "Diagnostics", href: "/diagnostics" },
-            { label: "Troubleshooting" },
-          ]}
-          backHref="/"
-          icon={<BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-          iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
-          title="Troubleshooting"
-          subtitle="Navigate product components and documentation"
-          right={
-            <button
-              type="button"
-              disabled={!selectedProductId}
-              onClick={() => {
-                const qs = new URLSearchParams({ productId: selectedProductId, full: "1" });
-                if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
-                const ctxClientId = selectedOrderCtx?.client_id ?? queryClientId;
-                const ctxOrderId = selectedOrderCtx?.id ?? queryOrderId;
-                if (ctxClientId) qs.set("clientId", ctxClientId);
-                if (ctxOrderId) qs.set("orderId", ctxOrderId);
-                const pRef = encodeURIComponent(orderRef || "VIEW");
-                const pName = encodeURIComponent(products.find(p => p.id === selectedProductId)?.product_name || "PRODUCT");
-                window.open(`/diagnostics/troubleshooting/${pRef}/${pName}?${qs.toString()}`, "_blank");
-              }}
-              className="flex items-center gap-1.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:border-violet-500/30 hover:text-slate-900 dark:text-white disabled:opacity-30"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Full View
-            </button>
-          }
-        />
-      )}
+      <PageHeader
+        breadcrumbs={[
+          { label: "Dashboard", href: "/" },
+          { label: "Troubleshooting" },
+        ]}
+        backHref="/"
+        icon={<BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+        iconClassName="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20"
+        title="Troubleshooting"
+        subtitle="Navigate product components and documentation"
+        right={
+          <button
+            type="button"
+            disabled={!selectedProductId}
+            onClick={() => {
+              const qs = new URLSearchParams({
+                orderId: queryOrderId || selectedOrderCtx?.id || "",
+                clientId: queryClientId || selectedOrderCtx?.client_id || "",
+                full: "1",
+              });
+              if (activeGlbNode?.design_id) qs.set("part", activeGlbNode.design_id);
+              window.open(`/troubleshooting/${encodeURIComponent(orderRef || "VIEW")}/${encodeURIComponent(selectedProduct?.product_name || productNameFromUrl || "PRODUCT")}?${qs.toString()}`, "_blank");
+            }}
+            className="flex items-center gap-1.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-white/45 transition hover:border-violet-500/30 hover:text-slate-900 dark:text-white disabled:opacity-30"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Full View
+          </button>
+        }
+      />
 
-      {(isFullView || orderRef || navPath.length > 0 || selectedParts.size > 0) && (
+      {(orderRef || navPath.length > 0 || selectedParts.size > 0) && (
         <div className="h-9 shrink-0 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#090b10] flex items-center px-4 gap-2 overflow-x-auto">
-          {isFullView && (
-            <button
-              onClick={() => router.push("/diagnostics/troubleshooting")}
-              className="shrink-0 flex items-center gap-1.5 text-slate-600 dark:text-white/50 hover:text-slate-900 dark:text-white text-[11px] font-mono transition px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Go Back
-            </button>
-          )}
-          {isFullView && (orderRef || navPath.length > 0) && (
-            <span className="text-slate-300 dark:text-white/10 shrink-0">|</span>
-          )}
           {orderRef && orderRef !== "VIEW" && (
             <>
               <span className="shrink-0 text-[10px] font-mono text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 px-2 py-0.5 rounded uppercase">
@@ -780,7 +756,6 @@ export default function TroubleshootingPage() {
               <p className="text-sm font-mono font-semibold text-slate-600 dark:text-white/50">No context selected</p>
               <p className="text-xs font-mono text-slate-600 dark:text-white/25 leading-relaxed">
                 Open troubleshooting from an order or product to start a session.
-                Both an order and a product must be set before the workspace loads.
               </p>
             </div>
             <div className="flex items-center gap-3 mt-2">
@@ -808,7 +783,7 @@ export default function TroubleshootingPage() {
             <div className="px-2 py-1.5 border-b border-slate-200 dark:border-white/5 shrink-0 space-y-1.5">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[9px] font-mono text-slate-600 dark:text-white/25 uppercase tracking-widest truncate">
-                  {selectedProduct?.product_name ?? "Assembly Structure"}
+                  {selectedProduct?.product_name ?? productNameFromUrl ?? "Assembly Structure"}
                 </span>
                 <button
                   onClick={() => setExpanded(new Set())}
@@ -875,7 +850,7 @@ export default function TroubleshootingPage() {
                       <div
                         key={`${item.key}-${idx}`}
                         className={`relative flex items-center gap-1.5 py-1.5 transition-colors select-none text-xs font-mono ${isPartSelected ? "bg-blue-500/10 border-l-2 border-blue-500" :
-                            isActive ? `${color.badgeBg} border-l-2 ${item.kind === "node" ? "border-" + (color.icon.split("-")[1]) + "-500" : ""}` : color.row
+                            isActive ? `${color.badgeBg} border-l-2` : color.row
                           }`}
                         style={{ paddingLeft: 8 + item.depth * 14, paddingRight: 8 }}
                       >
@@ -895,7 +870,7 @@ export default function TroubleshootingPage() {
                           )}
                         </button>
                         <button
-                          className={`flex-1 flex items-center gap-1.5 text-left cursor-pointer min-w-0`}
+                          className="flex-1 flex items-center gap-1.5 text-left cursor-pointer min-w-0"
                           onClick={() => { if (hasChildren) toggleNode(item.key); }}
                         >
                           {(item.node.design_type === "Product" || item.node.design_type === "Mother Assembly" || item.node.design_type === "Child Assembly" || item.isProductRoot)
@@ -938,9 +913,7 @@ export default function TroubleshootingPage() {
                           <span className="w-1 h-1 rounded-full bg-amber-500/40" />
                         </span>
                         <HelpCircle className="h-3 w-3 shrink-0 text-amber-400" />
-                        <span className="flex-1 truncate">
-                          Common FAQs ({item.count})
-                        </span>
+                        <span className="flex-1 truncate">Common FAQs ({item.count})</span>
                       </button>
                     );
                   }
@@ -1059,7 +1032,7 @@ export default function TroubleshootingPage() {
         initialOrderId={selectedOrderCtx?.id ?? queryOrderId ?? orderRef}
         initialProductId={selectedProductId}
         initialOrderLabel={selectedOrderCtx?.order_id ?? orderRef ?? undefined}
-        initialProductLabel={selectedProduct?.product_name ?? undefined}
+        initialProductLabel={selectedProduct?.product_name ?? productNameFromUrl ?? undefined}
         selectedPartNodes={selectedPartNodes}
       />
 

@@ -279,8 +279,8 @@ export function AddTicketDrawer({
               design_version_uuid: node.design_version_id || null,
               troubleshooting_url:
                 selectedOrder?.order_id && productName
-                  ? `/diagnostics/troubleshooting/${encodeURIComponent(selectedOrder.order_id)}/${encodeURIComponent(productName)}?${sp.toString()}`
-                  : `/diagnostics/troubleshooting?${sp.toString()}`,
+                  ? `/troubleshooting/${encodeURIComponent(selectedOrder.order_id)}/${encodeURIComponent(productName)}?${sp.toString()}`
+                  : `/troubleshooting?${sp.toString()}`,
             };
           }),
         ),

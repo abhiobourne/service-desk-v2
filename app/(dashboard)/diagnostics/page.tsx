@@ -24,7 +24,7 @@ function mkTelemHistory(count = 30) {
   let pressure = -40, flow = 112;
   return Array.from({ length: count }, (_, i) => {
     pressure = +(Math.max(-55, Math.min(-30, pressure + (Math.random() - 0.5) * 4))).toFixed(1);
-    flow     = +(Math.max(105, Math.min(120,  flow     + (Math.random() - 0.5) * 2))).toFixed(1);
+    flow     = +(Math.max(105, Math.min(120,  flow + (Math.random() - 0.5) * 2))).toFixed(1);
     return { i, pressure, flow };
   });
 }
